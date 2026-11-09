@@ -46,9 +46,9 @@ Two things worth knowing before you pick numbers:
 
 <!-- Your criterion. It must name a number. -->
 
+Of 10 human-written texts that I know a person wrote, at most 1 may get the high-confidence AI label. A text labeled "unsure" does not count as flagged. This has to hold on each of three separate runs of all 10 texts, so one run with 2 flagged texts is a miss, even if the other two runs are clean.
 
-
-**Why this target:**
+**Why this target:** On a writing site, accusing a real writer of using AI costs that person far more than missing some AI text costs the site, so I would rather let AI through than flag someone's own work. One in ten is the smallest rate I can measure with ten texts, and I want it to hold on every run because the detector can score the same text differently each time.
 
 
 
@@ -58,9 +58,9 @@ Two things worth knowing before you pick numbers:
 
 <!-- Your criterion. -->
 
+5 of 5 bad inputs (no `text`, empty `text`, non-string `text`, 44 words, 301 words) return status 400 with a reason, and each adds exactly 1 rejection entry to the audit log. Text of 45 to 300 words is accepted.
 
-
-**Why this target:**
+**Why this target:** `detector.py` reads at most 400 tokens, set by `DETECTOR_MAX_TOKENS` in `config.py`, which is about 300 words. Text past that is ignored, so I reject it. Under 45 words the scores are too noisy to judge, and the style signal in `stylometry.py` needs at least 2 sentences. Each rejection is logged with `audit.log_rejection` so a flood of bad requests shows up in the log.
 
 
 
@@ -70,9 +70,9 @@ Two things worth knowing before you pick numbers:
 
 <!-- Your criterion. -->
 
+Submitting real texts of 45 to 300 words through `/submit`, I get each of the 3 labels (`human`, `unsure`, `ai`) at least once, on each of 3 runs.
 
-
-**Why this target:**
+**Why this target:** The label ranges are set by `HUMAN_THRESHOLD` and `AI_THRESHOLD` in `config.py`. A label that no real text can reach is dead, and the reader never sees it. I expect "human" to be the hardest, because it needs a combined score of 0.35 or below.
 
 
 
@@ -82,9 +82,9 @@ Two things worth knowing before you pick numbers:
 
 <!-- Your criterion. -->
 
+Of 5 appeals sent with a valid `content_id`, 5 return 200 with status `under_review` and each adds exactly 1 appeal entry to the audit log, with the original decision entry still there. An appeal with an unknown `content_id` returns 404 and adds 0 entries.
 
-
-**Why this target:**
+**Why this target:** The appeal is the only thing a writer wrongly labeled AI can do (`/appeal` in `app.py`), so it has to work every time. `audit.log_appeal` only appends, so the original decision must stay in the log beside the appeal. A typo in the id must fail loudly with a 404 and not look like success.
 
 
 
@@ -94,9 +94,9 @@ Two things worth knowing before you pick numbers:
 
 <!-- Your criterion. -->
 
+The average combined score of 5 clearly-AI texts is at least 0.30 higher than the average of 5 clearly-human texts, on each of 3 runs. The AI texts are ones I generate and the human texts are ones I wrote, all 45 to 300 words.
 
-
-**Why this target:**
+**Why this target:** The two signals only help if they push clearly-AI and clearly-human text apart. `HUMAN_THRESHOLD` and `AI_THRESHOLD` in `config.py` are 0.30 apart, so the groups must be at least that far apart on average for the labels to mean anything.
 
 
 
