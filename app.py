@@ -239,9 +239,15 @@ def submit():
     import detector
     model_score = detector.model_signal(text)
 
-    # Milestone 3 placeholders: no second signal, combine, or label yet.
+    # Milestone 4: the second signal, then the one combined score.
+    import scoring
+    import stylometry
+    style_score = stylometry.style_signal(text)
+    combined_score = scoring.combine_signals(model_score, style_score)
+
+    # Milestone 5 placeholders: the label is not built yet.
     guess = "unsure"
-    confidence = 0.5
+    confidence = combined_score
     label = "not built yet"
 
 # Step 4 - log the decision. The content_id is what /appeal needs later.
@@ -251,6 +257,8 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=combined_score,
         label=label,
         status="decided",
     )
@@ -262,7 +270,7 @@ def submit():
         "confidence": confidence,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
     }), 200
 
 

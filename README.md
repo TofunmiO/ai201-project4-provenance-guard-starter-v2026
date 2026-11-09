@@ -93,16 +93,16 @@ Provenance Guard takes a piece of text and says how likely it is to be AI-writte
 <!-- Write the rule in words, then give the numbers. What happens when the two
      signals disagree? -->
 
-**The rule:**
+**The rule:** Average the two signals, then subtract a share of how far apart they are. The more the signals disagree, the further the score is pulled down toward human. I chose this because a wrong accusation costs a writer more than a missed AI text costs the site, so I would rather let AI through than flag a person's own work. It is smooth on purpose: there is no gap size at which the score suddenly jumps.
 
-**The numbers:**
-
-**Where it lives:** `scoring.py::combine_signals`
+**The numbers:** `combined = 0.5 × model_score + 0.5 × style_score − 0.25 × |model_score − style_score|`, kept between 0 and 1. The weights and the 0.25 penalty are in `config.py` (`WEIGHT_MODEL_SIGNAL`, `WEIGHT_STYLE_SIGNAL`, `DISAGREEMENT_PENALTY`). Inside the style signal, the three measures are weighted 0.7 sentence-length spread, 0.3 punctuation, and 0 vocabulary variety. I gave vocabulary no weight because on my three test texts it pointed the wrong way: the AI text had the most varied vocabulary.
 
 <!-- ⚠️ The grader checks your code against that line. If your rule lives
      somewhere else, say where. -->
 
 **A case where my two signals split, and what my rule does with it:**
+
+My plain, ordinary writing about waiting on God (291 words, short sentences and common words) split the signals. The model signal read it as predictable, so `model_score` was 0.71, leaning AI. The style signal saw uneven sentence lengths, so `style_score` was 0.34, leaning human. A plain average gives 0.52. My rule subtracts 0.25 × 0.37 ≈ 0.09 and gives **0.43**, which is further from the 0.65 line for AI than the plain average. The cost is on the other side: AI text that fools only one of the two signals, such as AI with its sentences chopped into uneven pieces, is also pulled down.
 
 
 

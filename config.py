@@ -62,6 +62,24 @@ MAX_WORDS = 300
 WEIGHT_MODEL_SIGNAL = 0.5
 WEIGHT_STYLE_SIGNAL = 0.5
 
+# The more the two signals disagree, the further the average is pulled down:
+# combined = average - DISAGREEMENT_PENALTY * |model - style|. This is the "let
+# AI through before flagging a writer" decision, applied smoothly so there is
+# no gap size at which the score suddenly jumps.
+DISAGREEMENT_PENALTY = 0.25
+
+# Inside the style signal: how much each measure counts, and the two values
+# each is stretched between. A measure at its "human" end scores 0, at its
+# "AI" end scores 1, and is clipped beyond them. Chosen by looking at three
+# texts, so treat them as a first guess, not a finding.
+STYLE_WEIGHT_SPREAD = 0.7
+STYLE_WEIGHT_PUNCTUATION = 0.3
+STYLE_WEIGHT_VOCABULARY = 0.0   # pointed the wrong way on my texts; computed, not counted
+
+SPREAD_HUMAN, SPREAD_AI = 0.8, 0.2            # sentence_length_spread
+PUNCTUATION_HUMAN, PUNCTUATION_AI = 1.4, 2.2  # marks per sentence
+VOCABULARY_HUMAN, VOCABULARY_AI = 0.80, 0.90  # type_token_ratio, unused at weight 0
+
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
 # Where one label becomes another. Scores run 0.0 (confidently human) to 1.0

@@ -52,11 +52,17 @@ def combine_signals(model_score: float, style_score: float) -> float:
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
     """
-    # TODO: replace this
-    return (
+    average = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+
+    # The further apart the signals are, the more the average is pulled down.
+    # A wrong accusation costs a writer more than a missed AI text costs the
+    # site, so disagreement leans toward human, never toward AI.
+    penalty = config.DISAGREEMENT_PENALTY * abs(model_score - style_score)
+
+    return round(min(max(0.0, average - penalty), 1.0), 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:
