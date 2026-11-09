@@ -117,14 +117,16 @@ My plain, ordinary writing about waiting on God (291 words, short sentences and 
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person. |
+| unsure | 0.35 – 0.65 | We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review. |
+| high-confidence AI | 0.65 – 1.00 | We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why. |
 
 **Why I worded the "unsure" one this way:**
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
+
+My plain and formal human test texts both landed here, so a real writer will see this label often. It says "we can't tell" instead of "this might be AI," which admits that the system doesn't know without suggesting the writer did something wrong, and the second sentence says outright that it is not a finding that anything is wrong. It points to a review, which the appeal moves into `under_review`, but it does not promise that anything will be checked again, because nothing re-scores the text automatically.
 
 
 
@@ -168,11 +170,48 @@ A second submission, with an AI-written text (`model_score` 0.8595), and its ful
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d '{"content_id": "c_fe31d725b954", "reasoning": "I wrote this myself, in my own words, about something I have lived through."}'
 ```
 
 ```json
+{
+  "content_id": "c_fe31d725b954",
+  "message": "We've received your appeal, and this is now under review.",
+  "status": "under_review"
+}
+```
 
+`c_fe31d725b954` is my plain writing about waiting on God, submitted just before and labeled "unsure." The log afterwards shows the original decision with the appeal added beside it, and the decision is unchanged:
+
+```bash
+$ curl "http://127.0.0.1:5000/log?limit=2"
+```
+
+```json
+{
+  "count": 2,
+  "entries": [
+    {
+      "combined_score": 0.4203,
+      "content_id": "c_fe31d725b954",
+      "creator_id": "tofunmi",
+      "guess": "unsure",
+      "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+      "model_score": 0.6578,
+      "status": "decided",
+      "style_score": 0.3411,
+      "timestamp": "2026-11-09T23:42:32+00:00"
+    },
+    {
+      "content_id": "c_fe31d725b954",
+      "creator_id": "tofunmi",
+      "event": "appeal",
+      "reasoning": "I wrote this myself, in my own words, about something I have lived through.",
+      "status": "under_review",
+      "timestamp": "2026-11-09T23:42:32+00:00"
+    }
+  ]
+}
 ```
 
 **What the log shows afterwards**

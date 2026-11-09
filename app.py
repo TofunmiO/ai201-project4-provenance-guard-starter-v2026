@@ -245,10 +245,9 @@ def submit():
     style_score = stylometry.style_signal(text)
     combined_score = scoring.combine_signals(model_score, style_score)
 
-    # Milestone 5 placeholders: the label is not built yet.
-    guess = "unsure"
+    # Milestone 5: turn the score into a guess and the sentence a reader sees.
+    guess, label = scoring.score_to_label(combined_score)
     confidence = combined_score
-    label = "not built yet"
 
 # Step 4 - log the decision. The content_id is what /appeal needs later.
     content_id = f"c_{uuid.uuid4().hex[:12]}"
@@ -295,13 +294,34 @@ def appeal():
     wrong accusation and nothing at all.
     """
     payload = request.get_json(silent=True) or {}
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
 
-    # TODO: delete this and build the route.
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "bad_request", "message": "Send JSON with a \"content_id\"."}), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({"error": "bad_request", "message": "Send JSON with your \"reasoning\"."}), 400
+
+    # An id only counts if a decision was logged under it. Appeals and
+    # rejections carry an "event" key; decisions don't.
+    decisions = [e for e in audit.entries_for(content_id) if "event" not in e]
+    if not decisions:
+        return jsonify({
+            "error": "not_found",
+            "message": f"No submission found with content_id \"{content_id}\".",
+        }), 404
+
+    audit.log_appeal(
+        content_id=content_id,
+        creator_id=decisions[0]["creator_id"],
+        reasoning=reasoning,
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "We've received your appeal, and this is now under review.",
+    }), 200
 
 
 # ── Already works ─────────────────────────────────────────────────────────────
