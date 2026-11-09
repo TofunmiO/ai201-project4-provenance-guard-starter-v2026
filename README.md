@@ -39,7 +39,25 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+Provenance Guard takes a piece of text and says how likely it is to be AI-written, in words a non-technical reader can understand. Every submission passes through the same seven steps:
 
+1. **`POST /submit` receives the request.** It takes `text` and `creator_id`, checks that `text` is a non-empty string, and adds a `content_id` so the submission can be found again later (the appeal needs it).
+2. **The model signal (`detector.py`)** takes the text and adds `model_score`: how predictable a local language model finds it, from 0 to 1, where higher means more likely AI.
+3. **The style signal (`stylometry.py`)** takes the same text and adds `style_score`: how even its sentences, vocabulary and punctuation are, from 0 to 1, where higher means more likely AI.
+4. **`scoring.py::combine_signals`** takes both scores and adds `combined_score`, a single 0–1 number in the same direction.
+5. **`scoring.py::score_to_label`** takes the combined score and adds the `guess` (`human`, `unsure` or `ai`) and the sentence the reader actually sees.
+6. **`audit.py::log_decision`** takes everything so far and writes it to the audit log as one line, with status `decided`.
+7. **The response** goes back to the writer with the `content_id`, guess, label and both signal scores. If they think the label is wrong, `POST /appeal` takes the `content_id` and their reasoning, adds an appeal entry to the log beside the original decision, and moves the status to `under_review`.
+
+**`POST /submit`**
+- **Request:** `{"text": string, "creator_id": string}`. `creator_id` defaults to `"unknown"` if missing.
+- **Success (200):** `{"content_id", "guess" ("human" | "unsure" | "ai"), "confidence", "label", "model_score", "style_score"}`. Scores run from 0 to 1, higher meaning more likely AI. `confidence` is the combined score.
+- **Errors:** `text` missing, not a string, or empty returns 400 with `{"error": "bad_request", "message": "..."}`, and nothing is logged as a decision.
+
+**`POST /appeal`**
+- **Request:** `{"content_id": string, "reasoning": string}`.
+- **Success (200):** `{"content_id", "status": "under_review", "message": "..."}`.
+- **Errors:** 404 if the `content_id` is not in the log; 400 if `reasoning` is missing.
 
 ---
 
@@ -53,19 +71,22 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** How predictable the text is to a language model running locally (`detector.py::model_signal`). Low perplexity means the model could have guessed the next words. That is squashed onto 0–1 so that a high score means more likely AI.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** AI text is built by picking likely next words, so a language model finds it easy to predict. Human writing surprises the model more often.
 
-**What it can't see:**
+**What it can't see:** Authorship. It sees only predictability, and what it rewards is common words in short, ordinary sentences. Plenty of real people write that way, such as non-native English speakers, students and anyone writing plainly, so they score as AI. It fails the other way too: AI text that has been reworded or made deliberately odd looks unpredictable and scores as human.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, without reading it (`stylometry.py::style_signal`). It combines three measures: how much sentence length varies, how much of the vocabulary repeats (type-token ratio), and how much punctuation is used and how varied it is.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** Generated prose tends toward even, mid-length sentences and a narrower band of vocabulary. Human writing is lumpier, with a three-word sentence next to a forty-word one. AI text also tends to use punctuation, such as em dashes, tidily and consistently, where human writers use less of it and miss some.
 
-**What it can't see:**
+**What it can't see:** What the text says. It has no idea of meaning, so anything that changes the shape without changing the substance moves it: adding typos, breaking up sentences, or pasting in a quotation. Each measure has its own weak spot too:
+- **Sentence length:** a human writing to a template or style guide produces even sentences on purpose, and a text with only a few sentences has almost no spread to measure.
+- **Vocabulary:** the ratio falls as text gets longer, so a 50-word text looks varied and a 200-word one looks repetitive whatever the author. Length alone moves the score.
+- **Punctuation:** it measures how carefully someone punctuates, not who they are. A careful human writer looks like AI, and a casual human writer, or AI told to write casually, looks the other way.
 
 ### The combining rule
 
