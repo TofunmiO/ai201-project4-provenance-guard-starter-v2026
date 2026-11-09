@@ -46,6 +46,11 @@ DETECTOR_MODEL = os.getenv("AI201_DETECTOR_MODEL", "gpt2")
 # 300 words, which is enough for the signal to mean something.
 DETECTOR_MAX_TOKENS = 400
 
+# Text outside this range is rejected with a 400 (criterion 2). Too little text
+# gives a noisy score; past about 300 words the detector stops reading anyway.
+MIN_WORDS = 45
+MAX_WORDS = 300
+
 
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
 # How much each signal counts toward the combined score.

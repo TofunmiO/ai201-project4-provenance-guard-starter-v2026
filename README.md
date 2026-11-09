@@ -52,7 +52,7 @@ Provenance Guard takes a piece of text and says how likely it is to be AI-writte
 **`POST /submit`**
 - **Request:** `{"text": string, "creator_id": string}`. `creator_id` defaults to `"unknown"` if missing.
 - **Success (200):** `{"content_id", "guess" ("human" | "unsure" | "ai"), "confidence", "label", "model_score", "style_score"}`. Scores run from 0 to 1, higher meaning more likely AI. `confidence` is the combined score.
-- **Errors:** `text` missing, not a string, or empty returns 400 with `{"error": "bad_request", "message": "..."}`, and nothing is logged as a decision.
+- **Errors:** every bad input returns 400 with `{"error": ..., "message": "..."}` and leaves one rejection entry in the log, not a decision. `error` is `bad_request` when `text` is missing, not a string, or empty; `text_too_short` under 45 words; `text_too_long` over 300 words.
 
 **`POST /appeal`**
 - **Request:** `{"content_id": string, "reasoning": string}`.
@@ -145,12 +145,23 @@ Provenance Guard takes a piece of text and says how likely it is to be AI-writte
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d @- <<'EOF'
+{"text": "So are you going to continue to give me this closed off energy anytime we talk?\nThere is no room to have a conversation about this and moving forward from this. No more hope for the friendship that barely started? You accepted my apology but it feels like there is still some resentment. I'm trying because I did value to friendship that was forming and didn't want to shut the door on that the first misunderstanding that came up. But all in all it's all good. It feels like your pointing it as being just my fault without taking accountability for anything. You left me on read for four days after I commented on a show you told me to watch? You kept asking if I was going ti show up that Tuesday and didn't talk to me at all after the dinner was done at pressrolm and didn't even ask if I had gotten home safely which is in your character to ask because you had been previously doing it. So if I held all that against you and gave the same energy your giving. How would you feel?  It’s like you already had expectations for fri ships that I was never aware of given I had just started to know you so I already didn’t even stand a chance to meet up to it given I didn’t even know what your boundaries were. Anyways I come in peace", "creator_id": "tofunmi"}
+EOF
 ```
 
 ```json
-
+{
+  "confidence": 0.5,
+  "content_id": "c_4de8630d7771",
+  "guess": "unsure",
+  "label": "not built yet",
+  "model_score": 0.3742,
+  "style_score": null
+}
 ```
+
+A second submission, with an AI-written text (`model_score` 0.8595), and its full request are in [sample_requests.md](sample_requests.md).
 
 **An appeal**
 
@@ -171,7 +182,44 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 ```
 
 ```json
-
+{
+  "count": 3,
+  "entries": [
+    {
+      "combined_score": null,
+      "content_id": "c_4ba86a70a5b1",
+      "creator_id": "tofunmi",
+      "guess": "unsure",
+      "label": "not built yet",
+      "model_score": 0.8595,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-09T13:57:31+00:00"
+    },
+    {
+      "combined_score": null,
+      "content_id": "c_f9a889665b31",
+      "creator_id": "tofunmi",
+      "guess": "unsure",
+      "label": "not built yet",
+      "model_score": 0.6678,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-09T13:57:31+00:00"
+    },
+    {
+      "combined_score": null,
+      "content_id": "c_4de8630d7771",
+      "creator_id": "tofunmi",
+      "guess": "unsure",
+      "label": "not built yet",
+      "model_score": 0.3742,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-09T14:02:10+00:00"
+    }
+  ]
+}
 ```
 
 ---

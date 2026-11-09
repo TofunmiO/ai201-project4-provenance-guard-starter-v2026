@@ -155,7 +155,9 @@ def health():
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
-    ← TODO — Milestones 3, 4 and 5
+    ←\
+         
+           — Milestones 3, 4 and 5
 
     Expects JSON:
         {"text": "...", "creator_id": "..."}
@@ -165,7 +167,7 @@ def submit():
          "model_score": 0.0, "style_score": 0.0}
 
     ⚠️ **Both signal scores go in the response, not just the log.** Unit 8's
-    `run_attacks.py` and `run_eval.py` read `model_score` and `style_score`
+    `run_attacks.py` and `run_eval.py` read `moREADme   del_score` and `style_score`
     straight off this response and put them in your reports. Leave them out and
     every row of next unit's evidence says `null` — which is exactly the
     diagnostic you need to name a stage and a mechanism. You do not want to
@@ -200,16 +202,68 @@ def submit():
     a malformed input is one of the most common real failures there is.
     """
     payload = request.get_json(silent=True) or {}
-
+    text = payload.get("text")
+    creator_id = payload.get("creator_id", "unknown")
     # TODO: delete this and build the route.
+    # return jsonify({
+    #     "error": "not_implemented",
+    #     "message": "POST /submit isn't built yet — see the TODO in app.py.",
+    #     "you_sent": {
+    #         "text_length": len(payload.get("text", "")),
+    #         "creator_id": payload.get("creator_id"),
+    #     },
+    # }), 501
+# Step 2 - JSON goes in: pull text and creator_id out of the body
+    # Validate first: a bad request must not reach the detector, and it
+    # leaves a rejection entry in the log instead of a decision.
+    if not isinstance(text, str) or not text.strip():
+        audit.log_rejection(creator_id=creator_id, reason="bad_request")
+        return jsonify({"error": "bad_request", "message": "Send JSON with a non-empty \"text\"."}), 400
+
+    word_count = len(text.split())
+    if word_count < config.MIN_WORDS:
+        audit.log_rejection(creator_id=creator_id, reason="text_too_short", word_count=word_count)
+        return jsonify({
+            "error": "text_too_short",
+            "message": f"Send at least {config.MIN_WORDS} words; this was {word_count}.",
+        }), 400
+    if word_count > config.MAX_WORDS:
+        audit.log_rejection(creator_id=creator_id, reason="text_too_long", word_count=word_count)
+        return jsonify({
+            "error": "text_too_long",
+            "message": f"Send at most {config.MAX_WORDS} words; this was {word_count}.",
+        }), 400
+
+# Step 3 - one real signal that we first tested from the terminal
+    # python detector.py "some text"
+    import detector
+    model_score = detector.model_signal(text)
+
+    # Milestone 3 placeholders: no second signal, combine, or label yet.
+    guess = "unsure"
+    confidence = 0.5
+    label = "not built yet"
+
+# Step 4 - log the decision. The content_id is what /appeal needs later.
+    content_id = f"c_{uuid.uuid4().hex[:12]}"
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        label=label,
+        status="decided",
+    )
+
+    # Step 1 - to get the route working without any logic
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": guess,
+        "confidence": confidence,
+        "label": label,
+        "model_score": model_score,
+        "style_score": None,
+    }), 200
 
 
 @app.post("/appeal")
