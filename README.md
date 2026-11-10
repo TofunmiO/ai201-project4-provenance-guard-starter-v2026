@@ -392,7 +392,7 @@ that produced it:
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
-
+**An appeal changes nothing about the decision.** `POST /appeal` records the writer's reasoning, adds an appeal entry to the log beside the original decision, and marks the item `under_review`. It does not re-score the text: the signals are never called again, and the appeal doesn't even carry the text. Nothing reads the `under_review` status afterwards, so a person has to read `GET /log`, find the appeals, and decide. Re-running the same signals would give the same score, so a real re-check needs different information, such as a human reviewer or the writer's drafts. I stopped here because the brief asks only for the status change and the log entry, and a writer wrongly labeled AI still has a way to put their side on record.
 
 **The trade I'd make if this ran for real:**
 
