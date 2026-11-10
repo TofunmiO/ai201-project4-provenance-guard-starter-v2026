@@ -154,12 +154,12 @@ EOF
 
 ```json
 {
-  "confidence": 0.5,
-  "content_id": "c_4de8630d7771",
-  "guess": "unsure",
-  "label": "not built yet",
+  "confidence": 0.1434,
+  "content_id": "c_ead31d52f855",
+  "guess": "human",
+  "label": "We think this was probably written by a person.",
   "model_score": 0.3742,
-  "style_score": null
+  "style_score": 0.0664
 }
 ```
 
@@ -225,37 +225,34 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
   "count": 3,
   "entries": [
     {
-      "combined_score": null,
-      "content_id": "c_4ba86a70a5b1",
+      "combined_score": 0.4203,
+      "content_id": "c_fe31d725b954",
       "creator_id": "tofunmi",
       "guess": "unsure",
-      "label": "not built yet",
-      "model_score": 0.8595,
+      "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+      "model_score": 0.6578,
       "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-09T13:57:31+00:00"
+      "style_score": 0.3411,
+      "timestamp": "2026-11-09T23:42:32+00:00"
     },
     {
-      "combined_score": null,
-      "content_id": "c_f9a889665b31",
+      "content_id": "c_fe31d725b954",
       "creator_id": "tofunmi",
-      "guess": "unsure",
-      "label": "not built yet",
-      "model_score": 0.6678,
-      "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-09T13:57:31+00:00"
+      "event": "appeal",
+      "reasoning": "I wrote this myself, in my own words, about something I have lived through.",
+      "status": "under_review",
+      "timestamp": "2026-11-09T23:42:32+00:00"
     },
     {
-      "combined_score": null,
-      "content_id": "c_4de8630d7771",
+      "combined_score": 0.1434,
+      "content_id": "c_ead31d52f855",
       "creator_id": "tofunmi",
-      "guess": "unsure",
-      "label": "not built yet",
+      "guess": "human",
+      "label": "We think this was probably written by a person.",
       "model_score": 0.3742,
       "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-09T14:02:10+00:00"
+      "style_score": 0.0664,
+      "timestamp": "2026-11-10T03:19:32+00:00"
     }
   ]
 }
@@ -267,15 +264,15 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* A way to measure how varied a text's vocabulary is (unique words over total words) without text length distorting it, since longer texts repeat more words. I asked about using a length-corrected formula, dividing by the square root of the length.
+- *What came back:* Claude built it and then tested it by cutting my three texts to 50, 100, 200 and full length. The test showed the formula did not fix the problem, it flipped it: the score now rose with length instead of falling. It also showed the measure pointing the wrong way on my texts, because my AI-written sample had a more varied vocabulary than my two human texts. Claude suggested a fixed first 45 words, and then a moving window that averages the ratio over every 45-word stretch.
+- *What I changed:* I rejected the square-root formula and used the moving window in `stylometry.py::type_token_ratio`, which keeps length from mattering and still uses the whole text. Because the direction was still backwards on my texts, I gave this measure a weight of 0 in `style_signal` and trust sentence-length spread (weight 0.7) and punctuation (0.3) instead.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* A rule in `combine_signals` that matches my decision to let AI through before flagging a real writer. Claude proposed pulling the score toward the lower signal when the two disagreed by more than 0.25, and I asked whether that was the best rule we could come up with and what the balanced alternatives were.
+- *What came back:* Claude admitted its own rule had a cliff, since a 0.01 change in input at the 0.25 gap moved the result by 0.07, and that it had quoted me a wrong number for one text (0.18 instead of 0.14). It then compared six other rules on my three texts, including reweighting, a geometric mean, taking the lower score, and calling split signals "unsure," and recommended a smooth penalty.
+- *What I changed:* I chose the smooth penalty, `combined = average − 0.25 × |model − style|`, in `scoring.py::combine_signals` with the 0.25 in `config.py`. I kept the 50/50 weights and wrote the rule and the numbers into the combining rule section above.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
