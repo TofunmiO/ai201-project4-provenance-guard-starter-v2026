@@ -442,17 +442,450 @@ whose work got caught by it:
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. My own writing flagged as AI | ≤ 1 of 10 | 1/10 | 1/10 | 1/10 | MET (at the limit) |
+| 2. Bad input returns 400 and one rejection entry | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. All three labels reachable | 3 of 3 | 3/3 | 3/3 | 3/3 | MET |
+| 4. Appeal returns 200 and `under_review`; unknown id returns 404 and adds 0 entries | 5 of 5, and 0 entries | 5/5, unknown id added 1 | 5/5, unknown id added 1 | 5/5, unknown id added 1 | MISSED |
+| 5. AI average at least 0.30 above human average | gap ≥ 0.30 | 0.288 | 0.288 | 0.288 | MISSED |
+
+Run with `PORT=5001 python run_eval.py --label before`, output in `results/run_2026-11-15_2359_before.md`. I extended `run_eval.py` so it can test criterion 4 (it submits, appeals the returned `content_id`, and reads the log) and so it records how many log entries each trial added; the `appeal path` scenario is in `scenarios.py`, and all the texts are in `eval_texts.py`. "Own writing" in criterion 1 means texts I know a person wrote: 10 human-written pieces I supplied, mostly from one article series, so they are not ten independent writers.
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
 
-```json
+Produced by `run_eval.py::main` (file `results/run_2026-11-15_2359_before.md`), which sent each request to `app.py::submit` or `app.py::appeal`; the scores come from `scoring.py::combine_signals`. This is trial 1 of 3, pasted exactly; trials 2 and 3 were identical.
 
+**Criterion 1, ten human texts, trial 1**
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5207,
+    "model_score": 0.6879,
+    "style_score": 0.465,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "\u2019ve decided to add this statement at the top of all my writings.\n\n\u201c100"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.355,
+    "model_score": 0.4524,
+    "style_score": 0.3226,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "We need writers who are free to express the concerns of their own hear"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6445,
+    "model_score": 0.6939,
+    "style_score": 0.628,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "When I read, I don\u2019t care how long it took the writer to produce it. I"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5701,
+    "model_score": 0.668,
+    "style_score": 0.5375,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "Though this is a few years old. I think it\u2019s safe to say that people d"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5676,
+    "model_score": 0.6955,
+    "style_score": 0.5249,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "I\u2019ve had this brewing for a while, but haven\u2019t been able to pull my th"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.1944,
+    "model_score": 0.6651,
+    "style_score": 0.0375,
+    "label": "We think this was probably written by a person.",
+    "sent": "So, will AI make the average person more intelligent? No. Definitely n"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.506,
+    "model_score": 0.542,
+    "style_score": 0.494,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "AI makes you feel like you have understanding on every topic, but the "
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.2691,
+    "model_score": 0.5876,
+    "style_score": 0.1629,
+    "label": "We think this was probably written by a person.",
+    "sent": "Having AI write for us ALL THE TIME is also an issue.\n\nIs a time comin"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.6925,
+    "model_score": 0.7795,
+    "style_score": 0.6635,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "So I recently watched a movie called Honest Thief.\n\nThe main character"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.4895,
+    "model_score": 0.798,
+    "style_score": 0.3866,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "The FBI don\u2019t take him seriously at first, because, after all, who wou"
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 10,
+  "new_rejections": 0,
+  "new_decisions": 10,
+  "new_appeals": 0,
+  "line": "unsure, unsure, unsure, unsure, unsure, human, unsure, human, ai, unsure   [10 log entries added]"
+}
+```
+
+**Criterion 2, five bad inputs, trial 1**
+
+```json
+[
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"creator_id\": \"eval_bad_missing\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "(empty text)"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": 12345, \"creator_id\": \"eval_bad_number\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "word word word word word word word word word word word word word word "
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "word word word word word word word word word word word word word word "
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 5,
+  "new_rejections": 5,
+  "new_decisions": 0,
+  "new_appeals": 0,
+  "statuses": [
+    400,
+    400,
+    400,
+    400,
+    400
+  ],
+  "line": "statuses [400, 400, 400, 400, 400]; 5 rejection entries for 5 requests"
+}
+```
+
+**Criterion 3, label coverage, trial 1**
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.909,
+    "model_score": 0.9253,
+    "style_score": 0.9036,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Climate change is one of the most pressing challenges facing the world"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5207,
+    "model_score": 0.6879,
+    "style_score": 0.465,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "\u2019ve decided to add this statement at the top of all my writings.\n\n\u201c100"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.1944,
+    "model_score": 0.6651,
+    "style_score": 0.0375,
+    "label": "We think this was probably written by a person.",
+    "sent": "So, will AI make the average person more intelligent? No. Definitely n"
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 3,
+  "new_rejections": 0,
+  "new_decisions": 3,
+  "new_appeals": 0,
+  "line": "ai, unsure, human   [3 log entries added]"
+}
+```
+
+**Criterion 4, appeals, trial 1**
+
+```json
+[
+  {
+    "sent": "\u2019ve decided to add this statement at the top of all my writings.\n\n\u201c100",
+    "submit_status": 200,
+    "content_id": "c_6cd265427d32",
+    "status": 200,
+    "appeal_status": "under_review",
+    "log_decisions": 1,
+    "log_appeals": 1,
+    "log_appeal_status": "under_review"
+  },
+  {
+    "sent": "We need writers who are free to express the concerns of their own hear",
+    "submit_status": 200,
+    "content_id": "c_83ae629263b0",
+    "status": 200,
+    "appeal_status": "under_review",
+    "log_decisions": 1,
+    "log_appeals": 1,
+    "log_appeal_status": "under_review"
+  },
+  {
+    "sent": "When I read, I don\u2019t care how long it took the writer to produce it. I",
+    "submit_status": 200,
+    "content_id": "c_484f41ee5534",
+    "status": 200,
+    "appeal_status": "under_review",
+    "log_decisions": 1,
+    "log_appeals": 1,
+    "log_appeal_status": "under_review"
+  },
+  {
+    "sent": "Though this is a few years old. I think it\u2019s safe to say that people d",
+    "submit_status": 200,
+    "content_id": "c_eddfccebd9bb",
+    "status": 200,
+    "appeal_status": "under_review",
+    "log_decisions": 1,
+    "log_appeals": 1,
+    "log_appeal_status": "under_review"
+  },
+  {
+    "sent": "I\u2019ve had this brewing for a while, but haven\u2019t been able to pull my th",
+    "submit_status": 200,
+    "content_id": "c_159645838fc5",
+    "status": 200,
+    "appeal_status": "under_review",
+    "log_decisions": 1,
+    "log_appeals": 1,
+    "log_appeal_status": "under_review"
+  },
+  {
+    "sent": "appeal for an id that does not exist",
+    "status": 404,
+    "error_code": "not_found",
+    "log_entries_added": 1
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 11,
+  "new_rejections": 1,
+  "new_decisions": 5,
+  "new_appeals": 5,
+  "appeals_ok": 5,
+  "appeals_sent": 5,
+  "unknown_id_status": 404,
+  "unknown_id_log_entries_added": 1,
+  "line": "5/5 appeals returned 200 and under_review with the original decision still logged; unknown id -> 404, 1 log entries added"
+}
+```
+
+**Criterion 5, five AI texts, trial 1**
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.9025,
+    "model_score": 0.9231,
+    "style_score": 0.8956,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Regular exercise is one of the most effective ways to improve overall "
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.7055,
+    "model_score": 0.8611,
+    "style_score": 0.6536,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Time management is an essential skill for professionals who want to ac"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.8211,
+    "model_score": 0.8092,
+    "style_score": 0.8568,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Introducing the HydroSmart bottle, the perfect companion for staying h"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.909,
+    "model_score": 0.9253,
+    "style_score": 0.9036,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Climate change is one of the most pressing challenges facing the world"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.7593,
+    "model_score": 0.6884,
+    "style_score": 0.9721,
+    "label": "We think this was probably written with the help of AI. We can be wrong, so if you wrote it yourself, you can appeal and tell us why.",
+    "sent": "Lisbon is a vibrant city that offers a perfect blend of history, cultu"
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 5,
+  "new_rejections": 0,
+  "new_decisions": 5,
+  "new_appeals": 0,
+  "line": "ai, ai, ai, ai, ai   [5 log entries added]"
+}
+```
+
+**Criterion 5, five human texts, trial 1**
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5207,
+    "model_score": 0.6879,
+    "style_score": 0.465,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "\u2019ve decided to add this statement at the top of all my writings.\n\n\u201c100"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.355,
+    "model_score": 0.4524,
+    "style_score": 0.3226,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "We need writers who are free to express the concerns of their own hear"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6445,
+    "model_score": 0.6939,
+    "style_score": 0.628,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "When I read, I don\u2019t care how long it took the writer to produce it. I"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5701,
+    "model_score": 0.668,
+    "style_score": 0.5375,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "Though this is a few years old. I think it\u2019s safe to say that people d"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5676,
+    "model_score": 0.6955,
+    "style_score": 0.5249,
+    "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.",
+    "sent": "I\u2019ve had this brewing for a while, but haven\u2019t been able to pull my th"
+  }
+]
+```
+
+What the log did during that trial:
+
+```json
+{
+  "log_entries_added": 5,
+  "new_rejections": 0,
+  "new_decisions": 5,
+  "new_appeals": 0,
+  "line": "unsure, unsure, unsure, unsure, unsure   [5 log entries added]"
+}
 ```
 
 **Diagnoses**
@@ -471,7 +904,11 @@ that produced it:
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
+**Criterion 4, unknown-id half: missed on all three runs.** *Stage:* the route (`app.py::appeal`). *Mechanism:* I wrote the criterion in unit 7 as "an unknown `content_id` returns 404 and adds 0 entries," before I had decided to log refused requests. In unit 8, Milestone 1, I added `audit.log_rejection` to `/appeal` so that a run of bad ids leaves a trace instead of looking like a quiet afternoon. Every unknown-id appeal now adds one `appeal_not_found` entry, which contradicts "adds 0 entries" each time. The 404 and the five valid appeals are unaffected. I kept the logging and left the target as written, because a trace of refused requests matters more to me than an empty log, and a target I missed stays where it is.
 
+**Criterion 5: missed by 0.012, identically on all three runs (gap 0.288 against 0.30).** *Stage:* signal one, with the combining rule unable to correct it. *Mechanism:* the five human texts (H01 to H05) are plain opinion writing in short sentences. Signal one reads common words in short sentences as predictable, and four of the five scored 0.67 to 0.70 on `model_score`. Signal two also leaned toward AI on three of them (0.52 to 0.63), so the signals agreed. My combining rule only subtracts when the two signals disagree, and here it took off about 0.04 per text, so the human average stayed at 0.532 against 0.819 for the AI texts. This is the same weakness the false-positive attacks found (FP02 and FP05): plain or formal human writing looks machine-like to both signals at once.
+
+**Criterion 1: met, but only just.** One human text, H09 (a movie review), was labeled AI on every run, with `model_score` 0.7795, `style_score` 0.6635 and a combined 0.6925, which is 0.04 over the 0.65 line. The target allows one, so it passes, but a second text crossing the line would fail it.
 
 ---
 

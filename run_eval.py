@@ -66,6 +66,139 @@ def describe(body):
     return json.dumps(body)[:120]
 
 
+def fetch_log(requests, args):
+    """Every entry in the audit log right now, or None if it can't be read."""
+    try:
+        return requests.get(f"{args.url}/log", timeout=args.timeout).json()["entries"]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def run_submit_trial(requests, args, scenario):
+    """One trial of a plain scenario: every body goes to POST /submit."""
+    results = []
+    for body in bodies_for(scenario):
+        preview = describe(body)
+        try:
+            response = requests.post(f"{args.url}/submit", json=body,
+                                     timeout=args.timeout)
+            payload = response.json() if response.content else {}
+            results.append({
+                "status": response.status_code,
+                "guess": payload.get("guess"),
+                "confidence": payload.get("confidence"),
+                "model_score": payload.get("model_score"),
+                "style_score": payload.get("style_score"),
+                "label": payload.get("label"),
+                "sent": preview,
+            })
+        except Exception as exc:  # noqa: BLE001
+            results.append({"status": None, "error": f"{type(exc).__name__}: {exc}",
+                            "sent": preview})
+    return results
+
+
+def run_appeal_trial(requests, args, scenario):
+    """
+    One trial of an appeal scenario ("appeal": True in scenarios.py).
+
+    Each text is submitted, then the content_id that came back is appealed, then
+    the log is read to see what was recorded for that id. A last request appeals
+    an id that doesn't exist. This is what a list of texts alone can't express.
+    """
+    results = []
+    for i, text in enumerate(scenario["texts"], 1):
+        row = {"sent": text[:70]}
+        try:
+            creator = f"eval_{scenario['name'][:12]}_{i}"
+            sub = requests.post(f"{args.url}/submit",
+                                json={"text": text, "creator_id": creator},
+                                timeout=args.timeout)
+            row["submit_status"] = sub.status_code
+            content_id = sub.json().get("content_id") if sub.status_code == 200 else None
+            row["content_id"] = content_id
+            if content_id:
+                appeal = requests.post(
+                    f"{args.url}/appeal",
+                    json={"content_id": content_id,
+                          "reasoning": "Eval trial: I wrote this myself."},
+                    timeout=args.timeout)
+                body = appeal.json() if appeal.content else {}
+                entries = [e for e in (fetch_log(requests, args) or [])
+                           if e.get("content_id") == content_id]
+                decisions = [e for e in entries if "event" not in e]
+                appeals = [e for e in entries if e.get("event") == "appeal"]
+                row.update({
+                    "status": appeal.status_code,
+                    "appeal_status": body.get("status"),
+                    "log_decisions": len(decisions),
+                    "log_appeals": len(appeals),
+                    "log_appeal_status": appeals[-1].get("status") if appeals else None,
+                })
+        except Exception as exc:  # noqa: BLE001
+            row["status"] = None
+            row["error"] = f"{type(exc).__name__}: {exc}"
+        results.append(row)
+
+    # An id that was never submitted.
+    row = {"sent": "appeal for an id that does not exist"}
+    try:
+        before = fetch_log(requests, args)
+        appeal = requests.post(f"{args.url}/appeal",
+                               json={"content_id": "c_eval_unknown_id",
+                                     "reasoning": "Eval trial: no such submission."},
+                               timeout=args.timeout)
+        after = fetch_log(requests, args)
+        row.update({
+            "status": appeal.status_code,
+            "error_code": (appeal.json() if appeal.content else {}).get("error"),
+            "log_entries_added": (len(after) - len(before))
+            if before is not None and after is not None else None,
+        })
+    except Exception as exc:  # noqa: BLE001
+        row["status"] = None
+        row["error"] = f"{type(exc).__name__}: {exc}"
+    results.append(row)
+    return results
+
+
+def summarize(scenario, results, before, after):
+    """
+    One printed line and a small dict of what the log did during a trial.
+    It reports; it does not judge. Whether a trial passed depends on the
+    criterion you wrote.
+    """
+    added = None if before is None or after is None else len(after) - len(before)
+    new = [] if added is None else after[len(before):]
+    check = {"log_entries_added": added,
+             "new_rejections": sum(1 for e in new if e.get("event") == "rejected"),
+             "new_decisions": sum(1 for e in new if "event" not in e),
+             "new_appeals": sum(1 for e in new if e.get("event") == "appeal")}
+
+    if scenario.get("appeal"):
+        real = [r for r in results if r.get("content_id")]
+        ok = sum(1 for r in real if r.get("status") == 200
+                 and r.get("appeal_status") == "under_review"
+                 and r.get("log_decisions") == 1 and r.get("log_appeals") == 1)
+        unknown = results[-1]
+        check.update({"appeals_ok": ok, "appeals_sent": len(real),
+                      "unknown_id_status": unknown.get("status"),
+                      "unknown_id_log_entries_added": unknown.get("log_entries_added")})
+        line = (f"{ok}/{len(real)} appeals returned 200 and under_review with the "
+                f"original decision still logged; unknown id -> "
+                f"{unknown.get('status')}, {unknown.get('log_entries_added')} log entries added")
+    elif scenario.get("bodies"):
+        statuses = [r.get("status") for r in results]
+        check["statuses"] = statuses
+        line = (f"statuses {statuses}; {check['new_rejections']} rejection entries "
+                f"for {len(results)} requests")
+    else:
+        guesses = [r.get("guess") or "—" for r in results]
+        line = f"{', '.join(guesses)}   [{added} log entries added]"
+    check["line"] = line
+    return check
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -110,33 +243,21 @@ def main():
     for scenario in scenarios.SCENARIOS:
         print(f"\n{scenario['name']}  (criterion {scenario.get('criterion') or '—'})")
 
-        trials = []
+        trials, checks = [], []
         for trial in range(1, args.trials + 1):
-            results = []
-            for i, body in enumerate(bodies_for(scenario), 1):
-                preview = describe(body)
-                try:
-                    response = requests.post(f"{args.url}/submit", json=body,
-                                             timeout=args.timeout)
-                    payload = response.json() if response.content else {}
-                    results.append({
-                        "status": response.status_code,
-                        "guess": payload.get("guess"),
-                        "confidence": payload.get("confidence"),
-                        "model_score": payload.get("model_score"),
-                        "style_score": payload.get("style_score"),
-                        "label": payload.get("label"),
-                        "sent": preview,
-                    })
-                except Exception as exc:  # noqa: BLE001
-                    results.append({"status": None, "error": f"{type(exc).__name__}: {exc}",
-                                    "sent": preview})
+            before = fetch_log(requests, args)
+            if scenario.get("appeal"):
+                results = run_appeal_trial(requests, args, scenario)
+            else:
+                results = run_submit_trial(requests, args, scenario)
+            after = fetch_log(requests, args)
 
+            check = summarize(scenario, results, before, after)
             trials.append(results)
-            guesses = [r.get("guess") or "—" for r in results]
-            print(f"  trial {trial}: {', '.join(guesses)}")
+            checks.append(check)
+            print(f"  trial {trial}: {check['line']}")
 
-        rows.append({"scenario": scenario, "trials": trials})
+        rows.append({"scenario": scenario, "trials": trials, "checks": checks})
 
     write_report(rows, args)
 
@@ -180,7 +301,9 @@ def write_report(rows, args):
         lines += [f"### {scenario['name']}", ""]
         for trial_number, results in enumerate(row["trials"], 1):
             lines += [f"**Trial {trial_number}**", "", "```json",
-                      json.dumps(results, indent=2), "```", ""]
+                      json.dumps(results, indent=2), "```", "",
+                      "What the log did during this trial:", "", "```json",
+                      json.dumps(row["checks"][trial_number - 1], indent=2), "```", ""]
 
     path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\nWrote {path.relative_to(config.ROOT)}")
