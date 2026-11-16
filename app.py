@@ -151,7 +151,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -202,6 +202,10 @@ def submit():
     a malformed input is one of the most common real failures there is.
     """
     payload = request.get_json(silent=True) or {}
+    # JSON that isn't an object (a list, a bare string or number) has no .get.
+    if not isinstance(payload, dict):
+        audit.log_rejection(creator_id="unknown", reason="bad_request")
+        return jsonify({"error": "bad_request", "message": "Send a JSON object with a non-empty \"text\"."}), 400
     text = payload.get("text")
     creator_id = payload.get("creator_id", "unknown")
     # TODO: delete this and build the route.
@@ -294,18 +298,25 @@ def appeal():
     wrong accusation and nothing at all.
     """
     payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        audit.log_rejection(creator_id="unknown", reason="appeal_bad_request")
+        return jsonify({"error": "bad_request", "message": "Send a JSON object with a \"content_id\" and your \"reasoning\"."}), 400
     content_id = payload.get("content_id")
     reasoning = payload.get("reasoning")
 
+    # A refused appeal is logged too, so a run of bad ids shows up in the log.
     if not isinstance(content_id, str) or not content_id.strip():
+        audit.log_rejection(creator_id="unknown", reason="appeal_bad_request")
         return jsonify({"error": "bad_request", "message": "Send JSON with a \"content_id\"."}), 400
     if not isinstance(reasoning, str) or not reasoning.strip():
+        audit.log_rejection(creator_id="unknown", reason="appeal_bad_request", content_id=content_id)
         return jsonify({"error": "bad_request", "message": "Send JSON with your \"reasoning\"."}), 400
 
     # An id only counts if a decision was logged under it. Appeals and
     # rejections carry an "event" key; decisions don't.
     decisions = [e for e in audit.entries_for(content_id) if "event" not in e]
     if not decisions:
+        audit.log_rejection(creator_id="unknown", reason="appeal_not_found", content_id=content_id)
         return jsonify({
             "error": "not_found",
             "message": f"No submission found with content_id \"{content_id}\".",

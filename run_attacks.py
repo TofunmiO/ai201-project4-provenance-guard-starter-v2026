@@ -335,7 +335,10 @@ def require_requests():
 
 FLOOD_TEXT = (
     "This is an ordinary submission, sent over and over from the same account "
-    "to find out where the rate limit sits. Nothing about the text matters here."
+    "to find out where the rate limit sits. Nothing about the text matters here. "
+    "It only needs to be long enough to pass the word count check, so it keeps going "
+    "for a few more plain sentences. The service should accept it, score it, and "
+    "answer every time, until the limit says stop."
 )
 
 

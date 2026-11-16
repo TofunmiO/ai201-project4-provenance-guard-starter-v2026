@@ -52,12 +52,12 @@ Provenance Guard takes a piece of text and says how likely it is to be AI-writte
 **`POST /submit`**
 - **Request:** `{"text": string, "creator_id": string}`. `creator_id` defaults to `"unknown"` if missing.
 - **Success (200):** `{"content_id", "guess" ("human" | "unsure" | "ai"), "confidence", "label", "model_score", "style_score"}`. Scores run from 0 to 1, higher meaning more likely AI. `confidence` is the combined score.
-- **Errors:** every bad input returns 400 with `{"error": ..., "message": "..."}` and leaves one rejection entry in the log, not a decision. `error` is `bad_request` when `text` is missing, not a string, or empty; `text_too_short` under 45 words; `text_too_long` over 300 words.
+- **Errors:** every bad input returns 400 with `{"error": ..., "message": "..."}` and leaves one rejection entry in the log, not a decision. `error` is `bad_request` when the body isn't a JSON object, or `text` is missing, not a string, or empty; `text_too_short` under 45 words; `text_too_long` over 300 words.
 
 **`POST /appeal`**
 - **Request:** `{"content_id": string, "reasoning": string}`.
 - **Success (200):** `{"content_id", "status": "under_review", "message": "..."}`.
-- **Errors:** 404 if the `content_id` is not in the log; 400 if `reasoning` is missing.
+- **Errors:** 404 if the `content_id` is not in the log; 400 if the body isn't a JSON object, or `content_id` or `reasoning` is missing. Every refused appeal leaves one rejection entry in the log (`appeal_not_found` or `appeal_bad_request`).
 
 ---
 
@@ -280,7 +280,7 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 4 per minute, 45 per day (`RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_PER_DAY` in `config.py`, applied to `/submit`)
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
@@ -288,17 +288,43 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+A real writer submitting their own work edits and resubmits a handful of times, not four times in a minute, so 4 a minute is more than they need and a 429 would rarely reach them. 45 a day is room for a long editing session. For a script trying to map where my thresholds sit, 45 a day from one `creator_id` means about 45 probes, so a thousand variations would take over three weeks, and each one also costs a model run on my machine. The limit is deliberately not tighter because a writer who gets blocked while revising their own work is the person I least want to hurt.
+
+It has a hole: the limit is counted per `creator_id`, and the caller chooses the `creator_id`. A script that sends a different one on every request is never counted twice, so these limits slow down one name, not one attacker. I accepted that for now because a real fix needs accounts or per-address limits, which this service doesn't have.
+
+**What a caller counts as:** The `creator_id` in the request body when there is one, and the caller's IP address only when it is missing or not a string (`rate_limit_key` in `app.py`). Counts are kept in memory (`memory://`), so a restart forgets them. Rejected requests count too: in my first test runs, requests my own route refused with a 400 still used up the limit.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
-
+```bash
+$ PORT=5001 python run_attacks.py --flood 15
 ```
 
 ```
+15 submissions as 'flood_tester' against http://127.0.0.1:5001
+
+  [ 1/15] 200
+  [ 2/15] 200
+  [ 3/15] 200
+  [ 4/15] 200
+  [ 5/15] 429
+  [ 6/15] 429
+  [ 7/15] 429
+  [ 8/15] 429
+  [ 9/15] 429
+  [10/15] 429
+  [11/15] 429
+  [12/15] 429
+  [13/15] 429
+  [14/15] 429
+  [15/15] 429
+
+200 200 200 200 429 429 429 429 429 429 429 429 429 429 429
+
+11 of 15 were rate limited.
+```
+
+I ran it on port 5001 because macOS AirPlay Receiver holds port 5000. The first runs returned 400 instead of 200, because the starter's 27-word `FLOOD_TEXT` is under my 45-word minimum, so I lengthened it to 66 words in `run_attacks.py`. `GET /log` recorded the 4 decisions and 11 rejections with reason `rate_limited` and the limit `4 per 1 minute`. The run is saved in `results/flood_2026-11-15_2157.md`.
 
 ---
 
