@@ -910,6 +910,24 @@ What the log did during that trial:
 
 **Criterion 1: met, but only just.** One human text, H09 (a movie review), was labeled AI on every run, with `model_score` 0.7795, `style_score` 0.6635 and a combined 0.6925, which is 0.04 over the 0.65 line. The target allows one, so it passes, but a second text crossing the line would fail it.
 
+
+**The seven attacks that broke.** For each: the stage, then the mechanism. The "plain average" is what the two signals would have given without my disagreement penalty, so it shows whether the signals or my rule did the damage.
+
+- **FP02, a human writer's formal prose, labeled AI (0.674).** *Stage:* signal one and signal two together. *Mechanism:* the detector scored it 0.739 and the style signal 0.653, so both read formal writing as machine-like. The plain average is 0.696, still AI, so my combining rule is not the cause: it only subtracts when the signals disagree, and these agreed.
+- **FP05, a person's technical documentation, labeled AI (0.658).** *Stage:* signal one and signal two together. *Mechanism:* the same as FP02, with 0.800 from the detector and 0.610 from the style signal, and a plain average of 0.705. It is only 0.008 over the line, so it is a fragile break.
+- **EV01, typos added to AI text, labeled human (0.314).** *Stage:* signal one, then the combining rule. *Mechanism:* the attack was aimed at signal two, but the number that collapsed was the detector's, down to 0.164, while the style signal stayed at 0.764 and still read it as AI. My reading is that misspelled words are unlikely under the language model, which raises perplexity, so signal one took typos for human unpredictability. I did not isolate that. This is the one case where my rule decided the label: the plain average was 0.464 (unsure), and subtracting the penalty for a 0.60 gap pulled it to 0.314.
+- **EV02, AI text with its sentences broken up, labeled human (0.149).** *Stage:* signal two. *Mechanism:* chopping sentences into uneven pieces pushes sentence-length spread past the point my scaling treats as clearly human, so the style signal went to 0.000, while the detector still said 0.594. Spread is 70% of the style signal, so one cheap edit zeroed it. The plain average was 0.297, already human.
+- **EV06, one very long and one very short sentence, labeled human (0.143).** *Stage:* signal two. *Mechanism:* the same as EV02: style 0.000, detector 0.573, plain average 0.287.
+- **EV05, a heavy human editing pass over AI text, labeled human (0.334).** *Stage:* signal one and signal two together. *Mechanism:* both signals fell, to 0.321 and 0.370, so the edit changed both the word choice and the sentence shape. A plain average gives 0.346, also human. No part of my rule could have caught it, because there is nothing for the signals to disagree about.
+- **PI01, an injected "ignore previous instructions" line plus AI text, labeled human (0.236).** *Stage:* signal one and signal two. *Mechanism:* the instruction itself did nothing, because the service never reads for meaning. The three short sentences it added changed the measurements: style fell to 0.160 and the detector to 0.463. The plain average was 0.312, already human.
+
+**The pattern.** Seven breaks come down to two problems, not seven.
+
+1. **My two signals share a blind spot on plain and formal human writing.** FP02, FP05, the criterion 5 gap and the H09 near miss in criterion 1 are all the same failure. Signal one rewards common words in short sentences and signal two rewards even sentences, and plain or formal prose has both, so the signals agree, and my disagreement rule has nothing to act on.
+2. **A single fooled signal is enough to pass AI text.** In EV01, EV02, EV06 and PI01, one signal was pushed low and the equal 50/50 weights dragged the average under 0.35 or close to it. My penalty decided the label only for EV01. This is the price of my choice to let AI through before flagging a writer, and the cheapest edit that triggers it is breaking up sentences, because spread carries 70% of the style signal.
+
+The criterion 5 miss and the criterion 4 miss have different causes. Criterion 5 belongs to the first pattern, and criterion 4 is a conflict between a unit 7 target and a unit 8 decision, not a signal failure.
+
 ---
 
 ## The Improvement
