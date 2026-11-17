@@ -274,6 +274,24 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 - *What came back:* Claude admitted its own rule had a cliff, since a 0.01 change in input at the 0.25 gap moved the result by 0.07, and that it had quoted me a wrong number for one text (0.18 instead of 0.14). It then compared six other rules on my three texts, including reweighting, a geometric mean, taking the lower score, and calling split signals "unsure," and recommended a smooth penalty.
 - *What I changed:* I chose the smooth penalty, `combined = average − 0.25 × |model − style|`, in `scoring.py::combine_signals` with the 0.25 in `config.py`. I kept the 50/50 weights and wrote the rule and the numbers into the combining rule section above.
 
+**Moment 3**
+
+- *What I asked for:* Whether to test the appeal criterion by hand or extend `run_eval.py`, since a hand test would not be recorded or reproducible.
+- *What came back:* Claude recommended extending it and wrote an appeal mode that submits a text, appeals the returned `content_id`, and reads `GET /log` to record the decision and appeal counts, plus a before-and-after log count for every trial. It tested the change against a throwaway copy of the service so my real log stayed clean. It also warned me that logging refused appeals, which I had asked for earlier, would make criterion 4's "unknown id adds 0 entries" come out missed.
+- *What I changed:* I told it to extend `run_eval.py`, and I kept the logging and recorded the miss with its cause, instead of editing the criterion or removing the logging.
+
+**Moment 4**
+
+- *What I asked for:* A diagnosis, with a stage and a mechanism, for each of the seven attacks that broke.
+- *What came back:* Claude's first reading blamed my disagreement penalty for the evasions that passed. When it recomputed a plain average of the two signals for each attack, it found the equal 50/50 weights did most of the damage and the penalty decided the label only for EV01 (0.464 to 0.314). It also ran my stylometry on the attack text to confirm EV02 and EV06 had sentence-length spreads of 0.85 and 1.19, past the line my scaling treats as fully human.
+- *What I changed:* I wrote the diagnoses with the plain-average column and put the cause on the weights, not the penalty alone. I kept the typos explanation for EV01 as "my reading," because Claude had not isolated it.
+
+**Moment 5**
+
+- *What I asked for:* One change to make from my diagnoses, with the alternatives compared.
+- *What came back:* Claude replayed my recorded scores through eight candidate changes without sending anything and recommended raising `AI_THRESHOLD` to 0.70. It warned me that my own marking rule hides the cost, because AI text that slides from "ai" to "unsure" still counts as held, and that I would be tuning to the set I was measuring against.
+- *What I changed:* I chose 0.70, and in the write-up I reported the evasions I stopped catching (3 of 10 down to 0), not only the two false positives I fixed.
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -1045,12 +1063,24 @@ The criteria run is `results/run_2026-11-16_2148_after.md`, in the same format a
 
 **An appeal changes nothing about the decision.** `POST /appeal` records the writer's reasoning, adds an appeal entry to the log beside the original decision, and marks the item `under_review`. It does not re-score the text: the signals are never called again, and the appeal doesn't even carry the text. Nothing reads the `under_review` status afterwards, so a person has to read `GET /log`, find the appeals, and decide. Re-running the same signals would give the same score, so a real re-check needs different information, such as a human reviewer or the writer's drafts. I stopped here because the brief asks only for the status change and the log entry, and a writer wrongly labeled AI still has a way to put their side on record.
 
+**EV02, EV06 and PI01: cheap edits to sentence shape still pass AI text as human.** These are one problem, in signal two. Breaking a text into uneven pieces, or adding a few short sentences, zeroes or lowers the style signal, and the equal 50/50 weights then pull the average under 0.35. What I'd do is make sentence-length spread harder to game, for example by measuring it only over sentences above a minimum length, so chopping or one-word sentences stop counting. The obvious quick fix, requiring both signals to be low before a text is called human, I replayed on my recorded scores and it does not work: of the 17 real human texts I have scores for, only 3 are labeled human today, and under that rule none would be, because the detector scores real human writing high (those three have detector scores of 0.59, 0.67 and 0.88 and get there on the style signal). It would also still let 1 of the 4 evasions through. I stopped because the brief asks for one change measured properly, I spent it on the false accusations, and the spread fix would need its own before and after.
+
+**EV01: typos still read as human.** This is signal one. I'd score the detector on a copy of the text with obvious misspellings corrected, so typos stop looking like unpredictability. I have not confirmed that is the mechanism, so the first step would be to score the same text with and without its typos. I stopped because that is an untested guess and one change was the limit.
+
+**EV05: a heavy human editing pass still passes.** Both signals fell, because the text really was rewritten. I do not think two statistics about word choice and sentence shape can fix this. It needs different evidence, such as the writer's drafts or edit history, and past some point a heavily edited AI text is hard to tell from human writing. I stopped because there is no small change to these two signals that addresses it.
+
+**Criterion 5 is still missed (gap 0.288 against 0.30).** What I'd do is add a signal that separates plain human prose from AI prose, because both of mine agree on both. In my replay, weighting the style signal at 0.65 would reach 0.312, but that passes by 0.012, it was found by tuning to this set, and it leans on the signal that EV02 and EV06 show is cheapest to fool, so it would not be a real fix. I stopped because my one change went to false accusations, which I think is the worse failure, and I left this miss as it is.
+
+**Criterion 4 is still missed (an unknown id adds one log entry, not zero).** I would not change the code. I wrote the target in unit 7, before I decided to log refused requests, and I would rather have a trace of a refused appeal than an empty log. The two decisions conflict, and I stopped here on purpose.
+
+**Also still true, and not from the attack set.** The rate limit counts per `creator_id` and the caller picks it, so a script that changes it on every request is never limited; I would also count by address. Four early log entries from before the second signal have empty `style_score` and `combined_score`, which I left as honest history. The log does not store the text or the weights and thresholds in force, and I moved `AI_THRESHOLD` from 0.65 to 0.70 during this unit, so an older entry labeled AI with a score between 0.65 and 0.70 was correct under the old line and would read as unsure now.
+
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
 
-
+I would keep the AI line high and let AI text through before I accuse a writer, because a wrong "AI" label lands on a person's own work and their only recourse is an appeal that nothing re-scores. The people who pay for that are the readers and the site, who trust a label that now misses more AI text (my threshold change alone cost me all three evasions I used to catch), and I accept that because a missed AI text costs them a little while a false accusation costs a writer a lot.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
