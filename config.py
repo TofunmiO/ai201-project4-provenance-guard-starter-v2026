@@ -95,7 +95,10 @@ VOCABULARY_HUMAN, VOCABULARY_AI = 0.80, 0.90  # type_token_ratio, unused at weig
 # that decide who pays for it.
 
 HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+# Was 0.65 in unit 7. Raised to 0.70 in unit 8 (The Improvement in the README):
+# two real writers' formal and technical prose scored 0.66 and 0.67 and were
+# labeled AI. The cost is that AI text scoring 0.65 to 0.70 now reads as unsure.
+AI_THRESHOLD = 0.70
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub
