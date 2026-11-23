@@ -2,7 +2,8 @@
 """
 Run capstone criteria 1 to 4 three times each.
 
-    python run_capstone.py
+    python run_capstone.py                 # the first result set
+    python run_capstone.py --label after   # a second set, kept beside it
 
 No server needs to be running. The script loads the real app and sends requests
 through Flask's test client, so it runs the same /submit code a server would.
@@ -50,7 +51,12 @@ from eval_texts import HUMAN_TEXTS   # noqa: E402
 TRIALS = 3
 TEXT = HUMAN_TEXTS[5][1]      # H06: 113 words, a real human text, valid length
 STAGES = ["detector", "style", "audit"]
-OUT = config.RESULTS_DIR / "capstone"
+# `--label after` keeps a second result set beside the first: its logs go to
+# results/capstone_after/run_N/ and its report to results/capstone_run_<time>_after.md.
+LABEL = ""
+if "--label" in sys.argv:
+    LABEL = sys.argv[sys.argv.index("--label") + 1]
+OUT = config.RESULTS_DIR / (f"capstone_{LABEL}" if LABEL else "capstone")
 
 client = service.app.test_client()
 
@@ -226,10 +232,10 @@ def main():
              "c3": "3. Audit failure lands in the fallback, says record_failed",
              "c4": "4. Replaying the logged input fails at the same stage"}
     stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M")
-    path = config.RESULTS_DIR / f"capstone_run_{stamp}.md"
+    path = config.RESULTS_DIR / f"capstone_run_{stamp}{'_' + LABEL if LABEL else ''}.md"
     lines = [f"# Capstone run log — criteria 1 to 4", "",
              "- Produced by: `run_capstone.py::main`", f"- {TRIALS} trials · {stamp}",
-             f"- Each trial's logs are kept in `results/capstone/run_N/`", "",
+             f"- Each trial's logs are kept in `{OUT.relative_to(config.ROOT)}/run_N/`", "",
              "| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |", "|---|---|---|---|---|---|"]
     for key in ("c1", "c2", "c3", "c4"):
         t = targets[key]

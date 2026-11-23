@@ -59,8 +59,12 @@ MAX_WORDS = 300
 # down BEFORE you code it, and to put the numbers in your README. Whatever you
 # decide, it goes here.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+WEIGHT_MODEL_SIGNAL = 0.4
+WEIGHT_STYLE_SIGNAL = 0.6
+# Was 0.5 / 0.5. Moved in the capstone (The Improvement) to close the original
+# criterion 5 gap: AI average minus human average was 0.288 against 0.30. At
+# 0.6 on the style signal it is 0.304. The cost is that AI text near the line
+# can drop to unsure, and the spread evasions (EV02, EV06) get slightly cheaper.
 
 # The more the two signals disagree, the further the average is pulled down:
 # combined = average - DISAGREEMENT_PENALTY * |model - style|. This is the "let
