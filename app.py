@@ -151,7 +151,7 @@ def health():
 
 # ── Capstone: a stage that fails is caught, answered and logged ───────────────
 
-def _stage_failed(creator_id, content_id, stage, exc, started):
+def _stage_failed(creator_id, content_id, stage, exc, started, text=None):
     """
     A signal stage raised. Record which stage, what kind of error and how long it
     ran, then answer the writer with JSON instead of Flask's HTML 500 page.
@@ -165,6 +165,9 @@ def _stage_failed(creator_id, content_id, stage, exc, started):
         error_type=type(getattr(exc, "original", exc)).__name__,
         duration_ms=int((time.monotonic() - started) * 1000),
         content_id=content_id,
+        # The whole text, on failures only, so a crash can be replayed exactly.
+        input=text,
+        word_count=len(text.split()) if isinstance(text, str) else None,
     )
     if stage == "audit":
         # The text WAS scored; the result just could not be recorded. Say so.
@@ -231,6 +234,7 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
+    request_started = time.monotonic()
     payload = request.get_json(silent=True) or {}
     # JSON that isn't an object (a list, a bare string or number) has no .get.
     if not isinstance(payload, dict):
@@ -279,7 +283,8 @@ def submit():
     try:
         model_score = detector.model_signal(text)
     except Exception as exc:  # noqa: BLE001
-        return _stage_failed(creator_id, content_id, "detector", exc, started)
+        return _stage_failed(creator_id, content_id, "detector", exc, started, text)
+    model_ms = int((time.monotonic() - started) * 1000)
 
     # Milestone 4: the second signal, then the one combined score.
     import scoring
@@ -288,7 +293,8 @@ def submit():
     try:
         style_score = stylometry.style_signal(text)
     except Exception as exc:  # noqa: BLE001
-        return _stage_failed(creator_id, content_id, "style", exc, started)
+        return _stage_failed(creator_id, content_id, "style", exc, started, text)
+    style_ms = int((time.monotonic() - started) * 1000)
     combined_score = scoring.combine_signals(model_score, style_score)
 
     # Milestone 5: turn the score into a guess and the sentence a reader sees.
@@ -307,12 +313,18 @@ def submit():
             combined_score=combined_score,
             label=label,
             status="decided",
+            # Capstone instrumentation: what came in, and how long each part took.
+            input_preview=text[:80],
+            word_count=word_count,
+            model_ms=model_ms,
+            style_ms=style_ms,
+            duration_ms=int((time.monotonic() - request_started) * 1000),
         )
     except audit.AuditWriteError as exc:
         # The decision is in the fallback file but not where /appeal looks, so
         # the writer is told it was not recorded rather than given an id that
         # an appeal could not find.
-        return _stage_failed(creator_id, content_id, "audit", exc, started)
+        return _stage_failed(creator_id, content_id, "audit", exc, started, text)
 
     # Step 1 - to get the route working without any logic
     return jsonify({
