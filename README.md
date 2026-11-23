@@ -1190,7 +1190,7 @@ I ran each criterion three times with nothing changed in between. Criteria 1 to 
 | 2. A detector or style failure leaves one new `failed` entry | 2 of 2 stages | 2/2 | 2/2 | 2/2 | MET |
 | 3. An audit failure lands in the fallback and says `record_failed` | 1 of 1 stage | 1/1 | 1/1 | 1/1 | MET |
 | 4. Replaying the logged input fails at the same stage | 3 of 3 stages | 3/3 | 3/3 | 3/3 | MET |
-| 5. Same verdicts (3 met, 2 missed) and labels as the Nov 16 run, as revised | same as Nov 16 | same | same | same | MET (MISSED as first written: 3/5 against 5 of 5) |
+| 5. 5 of 5 original criteria still pass, labels unchanged | 5 of 5 | 3/5 | 3/5 | 3/5 | MISSED |
 
 Real output from trial 1. Files: `results/capstone_run_2026-11-23_0040.md` (criteria 1 to 4) and `results/run_2026-11-23_0045_capstone_after.md` (criterion 5).
 
@@ -1324,8 +1324,10 @@ same verdicts as baseline:  True
 same labels as baseline:    True
 same per-trial numbers:     True
 
-capstone criterion 5, as revised (same verdicts and labels as the baseline): MET
-capstone criterion 5, as first written (5 of 5 still pass, labels unchanged): MISSED
+capstone criterion 5 (5 of 5 still pass, labels unchanged): MISSED
+no-regression check, reported beside it (same verdicts and labels as the baseline): MET
 ```
 
-**Verdicts.** Criteria 1 to 4 are MET on all three trials. Criterion 5 was first written as "5 of 5 original criteria still pass", and run that way it was MISSED (3 of 5), because original criteria 4 and 5 had already missed in unit 8. What I meant to test was that the capstone does not make the original system worse than the Nov 16 run, so I revised the criterion after seeing that first result. The old wording is kept in `criteria.md`, marked as replaced. Under the revised wording it is MET: the same verdicts (3 met, 2 missed), the same labels (18 `ai` / 9 `human` / 42 `unsure`), and the same number on every trial. Both results are shown above.
+**Verdicts.** Criteria 1 to 4 are MET on all three trials. Criterion 5 is **MISSED**: only 3 of the 5 original criteria pass on each trial. The two that miss, original criterion 4 (the unknown-id appeal adds 1 log entry, not 0) and original criterion 5 (the AI-to-human score gap is 0.288, not 0.30), were already missed in unit 8, so the capstone did not cause them.
+
+What I meant criterion 5 to test was that the capstone does not make the original system worse than the Nov 16 run. I added that check beside the target, in `criteria.md`, after seeing the first result. It does not replace the target, because the criterion was measurable and I missed it, and changing it to match would be lowering it after the fact. By that check the system holds: the same verdicts (3 met, 2 missed), the same labels (18 `ai` / 9 `human` / 42 `unsure`), and the same number on every trial.

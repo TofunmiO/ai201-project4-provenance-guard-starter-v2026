@@ -130,10 +130,10 @@ def main():
     print(f"same verdicts as baseline:  {same_verdicts}")
     print(f"same labels as baseline:    {same_labels}")
     print(f"same per-trial numbers:     {same_numbers}")
-    print(f"\ncapstone criterion 5, as revised (same verdicts and labels as the baseline): "
-          f"{'MET' if same_verdicts and same_labels else 'MISSED'}")
-    print(f"capstone criterion 5, as first written (5 of 5 still pass, labels unchanged): "
+    print(f"\ncapstone criterion 5 (5 of 5 still pass, labels unchanged): "
           f"{'MET' if met_now == 5 and same_labels else 'MISSED'}")
+    print(f"no-regression check, reported beside it (same verdicts and labels as the "
+          f"baseline): {'MET' if same_verdicts and same_labels else 'MISSED'}")
     sys.exit(0 if (same_verdicts and same_labels) else 1)
 
 
