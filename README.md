@@ -1135,3 +1135,46 @@ Deliberately not doing:
 - **Retrying a failed stage automatically.** A different problem from catching and reporting a failure; a retry also hides how often a stage fails.
 - **A readiness check at startup or on `/health`.** It tries to prevent failures, and this layer reports them.
 - **A timeout on a slow detector.** This layer catches a crash, but a detector that hangs would still hold the request open. That hole stays, and it goes in What's Still Broken.
+
+**Instrumentation**
+
+Every request to `/submit` leaves a record in `logs/audit.jsonl`, one JSON object per line, written by `audit.py`. A decision records the input (the first 80 characters and the word count), the output (the guess, the three scores and the label) and how long it took: `duration_ms` for the whole request, with `model_ms` and `style_ms` for each signal. A failure records the `stage` that broke, the `error_type` and `duration_ms`, and keeps the full text so the crash can be replayed exactly. Rejected inputs and appeals have their own entries.
+
+These are ten decision entries from the cost measurement (`measure_cost.py`, texts H01 to H10, copied from the log):
+
+```json
+{"timestamp": "2026-11-23T06:55:40+00:00", "content_id": "c_f37f040da1c9", "creator_id": "cost_H01", "guess": "unsure", "model_score": 0.6879, "style_score": 0.465, "combined_score": 0.5207, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "’ve decided to add this statement at the top of all my writings.\n\n“100% Human Wr", "word_count": 231, "model_ms": 161, "style_ms": 1, "duration_ms": 163}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_a90a0dd19b30", "creator_id": "cost_H02", "guess": "unsure", "model_score": 0.4524, "style_score": 0.3226, "combined_score": 0.355, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "We need writers who are free to express the concerns of their own heart and prop", "word_count": 146, "model_ms": 93, "style_ms": 0, "duration_ms": 93}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_c24fc8dd64b6", "creator_id": "cost_H03", "guess": "unsure", "model_score": 0.6939, "style_score": 0.628, "combined_score": 0.6445, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "When I read, I don’t care how long it took the writer to produce it. I merely wa", "word_count": 169, "model_ms": 108, "style_ms": 0, "duration_ms": 108}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_6546765161a0", "creator_id": "cost_H04", "guess": "unsure", "model_score": 0.668, "style_score": 0.5375, "combined_score": 0.5701, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "Though this is a few years old. I think it’s safe to say that people don’t want ", "word_count": 140, "model_ms": 87, "style_ms": 0, "duration_ms": 87}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_6671ebce5c8a", "creator_id": "cost_H05", "guess": "unsure", "model_score": 0.6955, "style_score": 0.5249, "combined_score": 0.5676, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "I’ve had this brewing for a while, but haven’t been able to pull my thoughts tog", "word_count": 180, "model_ms": 116, "style_ms": 0, "duration_ms": 117}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_12430f98000a", "creator_id": "cost_H06", "guess": "human", "model_score": 0.6651, "style_score": 0.0375, "combined_score": 0.1944, "label": "We think this was probably written by a person.", "status": "decided", "input_preview": "So, will AI make the average person more intelligent? No. Definitely not.\n\nThe o", "word_count": 113, "model_ms": 135, "style_ms": 1, "duration_ms": 136}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_417ce991b443", "creator_id": "cost_H07", "guess": "unsure", "model_score": 0.542, "style_score": 0.494, "combined_score": 0.506, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "AI makes you feel like you have understanding on every topic, but the reality is", "word_count": 104, "model_ms": 78, "style_ms": 0, "duration_ms": 79}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_bee7aaaa003b", "creator_id": "cost_H08", "guess": "human", "model_score": 0.5876, "style_score": 0.1629, "combined_score": 0.2691, "label": "We think this was probably written by a person.", "status": "decided", "input_preview": "Having AI write for us ALL THE TIME is also an issue.\n\nIs a time coming that nob", "word_count": 158, "model_ms": 95, "style_ms": 0, "duration_ms": 96}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_20cf47452d3a", "creator_id": "cost_H09", "guess": "unsure", "model_score": 0.7795, "style_score": 0.6635, "combined_score": 0.6925, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "So I recently watched a movie called Honest Thief.\n\nThe main character, Tom, is ", "word_count": 158, "model_ms": 111, "style_ms": 0, "duration_ms": 112}
+{"timestamp": "2026-11-23T06:55:41+00:00", "content_id": "c_6cf30b793cad", "creator_id": "cost_H10", "guess": "unsure", "model_score": 0.798, "style_score": 0.3866, "combined_score": 0.4895, "label": "We can't tell whether this was written by a person or by AI. That isn't a finding that anything is wrong. If you wrote it yourself, you can ask for a review.", "status": "decided", "input_preview": "The FBI don’t take him seriously at first, because, after all, who would want to", "word_count": 195, "model_ms": 125, "style_ms": 0, "duration_ms": 125}
+```
+
+And one failed run, from the real log. I started a second copy of the service with `AI201_DETECTOR_MODEL=no-such-model-xyz`, so the model could not load, and sent one normal request. The writer got a 503 with `{"error": "scoring_failed", ...}`, and the log recorded:
+
+```json
+{"timestamp": "2026-11-23T07:07:48+00:00", "creator_id": "real_failure", "event": "failed", "status": "failed", "stage": "detector", "error_type": "DetectorUnavailable", "duration_ms": 3563, "content_id": "c_b3d0279269b2", "input": "The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today. The quick brown fox jumps over the lazy dog today.", "word_count": 80}
+```
+
+The failure took 3563 ms because the detector spent that time trying to load a model that does not exist before giving up. The other two failure types (the style signal crashing, and the main log not being writable) are shown by `python demo_failures.py`, which forces each one against a temporary log and prints what the writer sees and what is recorded. Those crashes are instant, so their `duration_ms` is 0.
+
+**What It Costs**
+
+The cost of a run is seconds of compute: the service calls no paid API and sends nothing off the machine, because the detector is gpt2 running locally.
+
+How I measured it (`measure_cost.py`): I checked `/health` and it showed `detector_loaded: false` (Flask's debug reloader had restarted the server worker after I changed `app.py`), so the model was not in memory. I sent one request and counted that as the **cold start**. Then I sent one request for each of the ten texts H01 to H10 (104 to 231 words), one at a time, and averaged the ten warm requests using the `duration_ms` the server logged. Full output is in `results/cost_2026-11-22_2255.md`.
+
+| | Measured |
+|---|---|
+| Cold start (first request after a restart, loads gpt2) | 5.9 s |
+| Warm average, server `duration_ms` | 112 ms (range 79 to 163 ms) |
+| Warm average, as the caller waits | 0.11 s |
+| Of the 112 ms, the detector (`model_ms`) | 111 ms |
+| Of the 112 ms, the style signal (`style_ms`) | under 1 ms |
+
+The detector is essentially the whole cost. The cold start is about fifty times a warm request, so what a writer feels is a restart: the first person after one waits about 6 seconds. This is one machine (a laptop, CPU only) and ten texts, so treat it as a measurement of this setup and not a general figure.
