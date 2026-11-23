@@ -1118,3 +1118,20 @@ I would keep the AI line high and let AI text through before I accuse a writer, 
 ---
 
 📖 **How to run this project: [RUNNING.md](RUNNING.md)**
+
+---
+
+## Capstone
+
+**What This Extends**
+
+This extends Provenance Guard, the Flask service from units 7 and 8 (`app.py`). It takes a text, scores it with two signals (`detector.py`, `stylometry.py`), combines them in `scoring.py`, labels it, and writes every decision to `logs/audit.jsonl`. Today a failure inside any of those stages returns Flask's default HTML 500 page. The writer gets no message and no next step, and the failure leaves no entry in the log. This extension adds one layer that catches a failure in any stage, tells the writer what happened and what to do, and records the failure.
+
+**The Shape**
+
+Shape B, harden against failure. One layer: a failure in the detector, the style signal, or the audit write is caught inside `/submit`. The writer gets a JSON error saying something went wrong on our side and to try again, and the failure is logged with its stage and how long it ran. When the audit write is the thing that failed, the record goes to a fallback instead (a second file or the terminal), so the failure is never silent.
+
+Deliberately not doing:
+- **Retrying a failed stage automatically.** A different problem from catching and reporting a failure; a retry also hides how often a stage fails.
+- **A readiness check at startup or on `/health`.** It tries to prevent failures, and this layer reports them.
+- **A timeout on a slow detector.** This layer catches a crash, but a detector that hangs would still hold the request open. That hole stays, and it goes in What's Still Broken.
