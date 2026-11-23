@@ -29,7 +29,9 @@ _lock = threading.Lock()
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Milliseconds, not seconds: a test has to tell an entry written 10 ms after
+    # a request from one written 10 ms before it (capstone criterion 2).
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
 def log_decision(
