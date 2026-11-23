@@ -24,6 +24,7 @@ Routes:
     GET  /health      is the service up, and is the model loaded
 """
 
+import time
 import uuid
 
 from flask import Flask, jsonify, request
@@ -148,6 +149,31 @@ def health():
     })
 
 
+# ── Capstone: a stage that fails is caught, answered and logged ───────────────
+
+def _stage_failed(creator_id, content_id, stage, exc, started):
+    """
+    A signal stage raised. Record which stage, what kind of error and how long it
+    ran, then answer the writer with JSON instead of Flask's HTML 500 page.
+
+    The stage goes in the log, not the response: the writer needs to know to try
+    again, and the person reading the log needs to know what broke.
+    """
+    audit.log_failure(
+        creator_id=creator_id,
+        stage=stage,
+        error_type=type(exc).__name__,
+        duration_ms=int((time.monotonic() - started) * 1000),
+        content_id=content_id,
+    )
+    return jsonify({
+        "error": "scoring_failed",
+        "message": ("Something went wrong on our side while checking your text. "
+                    "Your text was not scored. Please try again in a minute."),
+        "content_id": content_id,
+    }), 503
+
+
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
@@ -240,13 +266,25 @@ def submit():
 
 # Step 3 - one real signal that we first tested from the terminal
     # python detector.py "some text"
+    # Capstone: the id exists before the stages run, so a failed request has one
+    # the writer can quote. A failure entry has an "event" key, so /appeal does
+    # not mistake it for a decision.
+    content_id = f"c_{uuid.uuid4().hex[:12]}"
     import detector
-    model_score = detector.model_signal(text)
+    started = time.monotonic()
+    try:
+        model_score = detector.model_signal(text)
+    except Exception as exc:  # noqa: BLE001
+        return _stage_failed(creator_id, content_id, "detector", exc, started)
 
     # Milestone 4: the second signal, then the one combined score.
     import scoring
     import stylometry
-    style_score = stylometry.style_signal(text)
+    started = time.monotonic()
+    try:
+        style_score = stylometry.style_signal(text)
+    except Exception as exc:  # noqa: BLE001
+        return _stage_failed(creator_id, content_id, "style", exc, started)
     combined_score = scoring.combine_signals(model_score, style_score)
 
     # Milestone 5: turn the score into a guess and the sentence a reader sees.
@@ -254,7 +292,6 @@ def submit():
     confidence = combined_score
 
 # Step 4 - log the decision. The content_id is what /appeal needs later.
-    content_id = f"c_{uuid.uuid4().hex[:12]}"
     audit.log_decision(
         content_id=content_id,
         creator_id=creator_id,
