@@ -69,7 +69,25 @@ take about 0.1 seconds.
 |---|---|
 | `python demo_failures.py` | Forces each stage to fail and shows what the writer gets and what is logged. No server needed |
 | `python measure_cost.py --url http://127.0.0.1:5001` | Measures the cost of a run: one cold start, then ten warm requests. Restart the server first for a real cold number |
-| `python run_eval.py --url http://127.0.0.1:5001 --label <name>` | Runs the criteria three times each |
+| `python run_eval.py --url http://127.0.0.1:5001 --label <name>` | Runs the five original criteria three times each. Needs the server running |
+| `python run_capstone.py` | Runs capstone criteria 1 to 4 three times each. No server needed. Keeps each trial's logs in `results/capstone/run_N/` |
+| `python check_regression.py results/<run file>` | Capstone criterion 5: reads a `run_eval.py` file and compares the original five criteria with the Nov 16 run |
+
+**To reproduce the capstone tests, in this order:**
+
+```bash
+# 1. Criteria 1 to 4. No server needed; takes about a minute.
+python run_capstone.py
+# Look at: results/capstone_run_<time>.md  and  results/capstone/run_1/audit.jsonl
+
+# 2. Criterion 5. Start the server in one terminal:
+PORT=5001 python app.py
+# then in a second terminal:
+python run_eval.py --url http://127.0.0.1:5001 --label capstone_after
+python check_regression.py results/run_<time>_capstone_after.md
+```
+
+Expected: `run_capstone.py` prints `3/3`, `2/2`, `1/1`, `3/3` for each of three trials. `check_regression.py` prints "criteria met: 3 of 5 (baseline 3 of 5)" and "same labels as baseline: True". The two original criteria that miss (the unknown-id appeal adds 1 log entry, and the AI-to-human score gap is 0.288) also missed before the capstone; they are not regressions. These scripts write to `results/`, and `run_eval.py` also adds entries to `logs/audit.jsonl`.
 
 ---
 

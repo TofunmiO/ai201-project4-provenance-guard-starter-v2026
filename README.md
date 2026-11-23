@@ -1178,3 +1178,154 @@ How I measured it (`measure_cost.py`): I checked `/health` and it showed `detect
 | Of the 112 ms, the style signal (`style_ms`) | under 1 ms |
 
 The detector is essentially the whole cost. The cold start is about fifty times a warm request, so what a writer feels is a restart: the first person after one waits about 6 seconds. This is one machine (a laptop, CPU only) and ten texts, so treat it as a measurement of this setup and not a general figure.
+
+
+**Run Log and Verdicts (Capstone)**
+
+I ran each criterion three times with nothing changed in between. Criteria 1 to 4 are run by `run_capstone.py`, which forces each failure in code and keeps every trial's logs in `results/capstone/run_1/`, `run_2/` and `run_3/` (an `audit.jsonl` and an `audit_fallback.jsonl` each), so anyone can open the files and see what the test produced. Criterion 5 is run by `run_eval.py` and read by `check_regression.py`. How to run both is in the Quick start (Capstone) in [RUNNING.md](RUNNING.md).
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. A failure returns a 503 with `error`, `message`, `next_step` | 3 of 3 stages | 3/3 | 3/3 | 3/3 | MET |
+| 2. A detector or style failure leaves one new `failed` entry | 2 of 2 stages | 2/2 | 2/2 | 2/2 | MET |
+| 3. An audit failure lands in the fallback and says `record_failed` | 1 of 1 stage | 1/1 | 1/1 | 1/1 | MET |
+| 4. Replaying the logged input fails at the same stage | 3 of 3 stages | 3/3 | 3/3 | 3/3 | MET |
+| 5. Same verdicts (3 met, 2 missed) and labels as the Nov 16 run, as revised | same as Nov 16 | same | same | same | MET (MISSED as first written: 3/5 against 5 of 5) |
+
+Real output from trial 1. Files: `results/capstone_run_2026-11-23_0040.md` (criteria 1 to 4) and `results/run_2026-11-23_0045_capstone_after.md` (criterion 5).
+
+*Criterion 1: the response for each forced stage.* Produced by `app.py::_stage_failed`, called from `app.py::submit`, with the failure forced by `run_capstone.py::Forced`.
+
+```json
+{
+  "detector": {
+    "status": 503,
+    "body": {
+      "content_id": "c_52eb40f94643",
+      "error": "scoring_failed",
+      "message": "Something went wrong on our side while checking your text. Your text was not scored.",
+      "next_step": "Try again in a minute."
+    }
+  },
+  "style": {
+    "status": 503,
+    "body": {
+      "content_id": "c_9851f8af18de",
+      "error": "scoring_failed",
+      "message": "Something went wrong on our side while checking your text. Your text was not scored.",
+      "next_step": "Try again in a minute."
+    }
+  },
+  "audit": {
+    "status": 503,
+    "body": {
+      "content_id": "c_5fe883d01890",
+      "error": "record_failed",
+      "message": "We checked your text, but could not save the result, so it cannot be appealed yet.",
+      "next_step": "Submit your text again in a minute."
+    }
+  }
+}
+```
+
+*Criterion 2: the new entry in `audit.jsonl`.* Written by `audit.py::log_failure`. The style entry's timestamp is about six seconds after the request because this was the first request of the process, so the real detector loaded the model before the style stage was forced to fail.
+
+```json
+{
+  "detector": {
+    "request_sent_at": "2026-11-23T08:40:01.529+00:00",
+    "new_entries_in_audit_jsonl": 1,
+    "entry": {
+      "timestamp": "2026-11-23T08:40:01.530+00:00",
+      "event": "failed",
+      "stage": "detector",
+      "error_type": "RuntimeError",
+      "duration_ms": 0
+    }
+  },
+  "style": {
+    "request_sent_at": "2026-11-23T08:40:01.531+00:00",
+    "new_entries_in_audit_jsonl": 1,
+    "entry": {
+      "timestamp": "2026-11-23T08:40:07.683+00:00",
+      "event": "failed",
+      "stage": "style",
+      "error_type": "RuntimeError",
+      "duration_ms": 0
+    }
+  }
+}
+```
+
+*Criterion 3: the response and the fallback entry.* The response comes from `app.py::_stage_failed`; the entry was written by `audit.py::_append` into `audit_fallback.jsonl`.
+
+```json
+{
+  "status": 503,
+  "body": {
+    "content_id": "c_5fe883d01890",
+    "error": "record_failed",
+    "message": "We checked your text, but could not save the result, so it cannot be appealed yet.",
+    "next_step": "Submit your text again in a minute."
+  },
+  "new_entries_in_fallback": 2,
+  "failed_entry": {
+    "timestamp": "2026-11-23T08:40:07.776+00:00",
+    "event": "failed",
+    "stage": "audit",
+    "error_type": "IsADirectoryError",
+    "primary_log_failed": true
+  }
+}
+```
+
+*Criterion 4: the replay.* `run_capstone.py::run_trial` takes the `input` from the logged `failed` entry, forces the same failure, and compares the `stage`.
+
+```json
+{
+  "detector": {
+    "replayed_input_matches_original": true,
+    "status": 503,
+    "stage_in_original_entry": "detector",
+    "stage_in_replay_entry": "detector"
+  },
+  "style": {
+    "replayed_input_matches_original": true,
+    "status": 503,
+    "stage_in_original_entry": "style",
+    "stage_in_replay_entry": "style"
+  },
+  "audit": {
+    "replayed_input_matches_original": true,
+    "status": 503,
+    "stage_in_original_entry": "audit",
+    "stage_in_replay_entry": "audit"
+  }
+}
+```
+
+*Criterion 5: the original five criteria against the Nov 16 "after" run.* Produced by `check_regression.py::main`, reading the file `run_eval.py` saved.
+
+```
+run:      results/run_2026-11-23_0045_capstone_after.md
+baseline: results/run_2026-11-16_2148_after.md
+
+| Criterion | This run (3 trials) | Verdict | Baseline | Verdict |
+|---|---|---|---|---|
+| 1. At most 1 of 10 human texts labeled ai | 0/10 flagged, 0/10 flagged, 0/10 flagged | MET | 0/10 flagged, 0/10 flagged, 0/10 flagged | MET |
+| 2. Bad input: 5 of 5 return 400, 5 rejections | 5/5, 5/5, 5/5 | MET | 5/5, 5/5, 5/5 | MET |
+| 3. All three labels appear | 3/3 labels, 3/3 labels, 3/3 labels | MET | 3/3 labels, 3/3 labels, 3/3 labels | MET |
+| 4. Appeals 5 of 5; unknown id adds 0 entries | 5/5, unknown id +1, 5/5, unknown id +1, 5/5, unknown id +1 | MISSED | 5/5, unknown id +1, 5/5, unknown id +1, 5/5, unknown id +1 | MISSED |
+| 5. AI average at least 0.30 above human | gap 0.288, gap 0.288, gap 0.288 | MISSED | gap 0.288, gap 0.288, gap 0.288 | MISSED |
+
+criteria met:       3 of 5 (baseline 3 of 5)
+labels:             {'ai': 18, 'human': 9, 'unsure': 42}   baseline {'ai': 18, 'human': 9, 'unsure': 42}
+same verdicts as baseline:  True
+same labels as baseline:    True
+same per-trial numbers:     True
+
+capstone criterion 5, as revised (same verdicts and labels as the baseline): MET
+capstone criterion 5, as first written (5 of 5 still pass, labels unchanged): MISSED
+```
+
+**Verdicts.** Criteria 1 to 4 are MET on all three trials. Criterion 5 was first written as "5 of 5 original criteria still pass", and run that way it was MISSED (3 of 5), because original criteria 4 and 5 had already missed in unit 8. What I meant to test was that the capstone does not make the original system worse than the Nov 16 run, so I revised the criterion after seeing that first result. The old wording is kept in `criteria.md`, marked as replaced. Under the revised wording it is MET: the same verdicts (3 met, 2 missed), the same labels (18 `ai` / 9 `human` / 42 `unsure`), and the same number on every trial. Both results are shown above.

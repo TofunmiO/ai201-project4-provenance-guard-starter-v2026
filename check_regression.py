@@ -107,7 +107,13 @@ def main():
     names = {"1": "At most 1 of 10 human texts labeled ai", "2": "Bad input: 5 of 5 return 400, 5 rejections",
              "3": "All three labels appear", "4": "Appeals 5 of 5; unknown id adds 0 entries",
              "5": "AI average at least 0.30 above human"}
-    print(f"run:      {args.run}\nbaseline: {args.baseline}\n")
+    def short(p):
+        try:
+            return str(Path(p).resolve().relative_to(config.ROOT))
+        except ValueError:
+            return str(p)
+
+    print(f"run:      {short(args.run)}\nbaseline: {short(args.baseline)}\n")
     print("| Criterion | This run (3 trials) | Verdict | Baseline | Verdict |")
     print("|---|---|---|---|---|")
     for k in "12345":
@@ -124,7 +130,9 @@ def main():
     print(f"same verdicts as baseline:  {same_verdicts}")
     print(f"same labels as baseline:    {same_labels}")
     print(f"same per-trial numbers:     {same_numbers}")
-    print(f"\ncapstone criterion 5 (5 of 5 still pass, labels unchanged): "
+    print(f"\ncapstone criterion 5, as revised (same verdicts and labels as the baseline): "
+          f"{'MET' if same_verdicts and same_labels else 'MISSED'}")
+    print(f"capstone criterion 5, as first written (5 of 5 still pass, labels unchanged): "
           f"{'MET' if met_now == 5 and same_labels else 'MISSED'}")
     sys.exit(0 if (same_verdicts and same_labels) else 1)
 

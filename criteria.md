@@ -166,6 +166,8 @@ Five criteria for the failure-handling layer added in the capstone. Each one hol
 
 ### 5.
 
-**5 of 5** original criteria still pass and the labels are unchanged after the capstone changes, compared against `results/run_2026-11-16_2148_after.md` (18 `ai` / 9 `human` / 42 `unsure`).
+**The same verdict on all 5 original criteria (3 met, 2 missed) and the same label counts (18 `ai` / 9 `human` / 42 `unsure`)**, on each of three trials, compared against `results/run_2026-11-16_2148_after.md`.
 
-**Why this target:** This is to ensure the system works as it should and there is no regression. The Nov 16 "after" run is the last known tested and graded version of the working system, so it is a good comparison. It has to be 5 of 5 because the extension is supposed to make the application better, so even one original criterion failing means it made something worse. The criteria are run by `run_eval.py`, and the comparison file is `results/run_2026-11-16_2148_after.md`.
+**Why this target:** This is to ensure the system works as it should and there is no regression. The Nov 16 "after" run is the last known tested and graded version of the working system, so it is a good comparison. It has to match exactly because the extension is supposed to make the application better, so any original criterion that does worse means it made something worse. The criteria are run by `run_eval.py`, and the comparison is made by `check_regression.py`.
+
+**Revised on 2026-11-23, after the first run of this criterion.** The original wording was: "5 of 5 original criteria still pass and the labels are unchanged after the capstone changes, compared against `results/run_2026-11-16_2148_after.md`." Run that way it came out MISSED (3 of 5), because original criteria 4 and 5 had already been missed in unit 8. It was meant to test that nothing got worse than the Nov 16 run, so I rewrote it to say that. The result under both wordings is in the README.
