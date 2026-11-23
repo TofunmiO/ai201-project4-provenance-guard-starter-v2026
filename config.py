@@ -133,4 +133,6 @@ RATE_LIMIT_STORAGE = "memory://"
 
 LOG_DIR = ROOT / "logs"
 AUDIT_LOG = LOG_DIR / "audit.jsonl"
+# Capstone: where an entry goes when AUDIT_LOG can't be written.
+AUDIT_FALLBACK_LOG = LOG_DIR / "audit_fallback.jsonl"
 RESULTS_DIR = ROOT / "results"

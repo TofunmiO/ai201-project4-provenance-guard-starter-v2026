@@ -70,7 +70,7 @@ def log_decision(
         "status": status,
     }
     entry.update(extra)
-    return _append(entry)
+    return _append(entry, strict=True)
 
 
 def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
@@ -139,12 +139,40 @@ def log_failure(
     })
 
 
-def _append(entry: dict) -> dict:
-    config.LOG_DIR.mkdir(parents=True, exist_ok=True)
+class AuditWriteError(Exception):
+    """The main log could not be written. `original` is the error underneath."""
+
+    def __init__(self, original: Exception):
+        super().__init__(f"{type(original).__name__}: {original}")
+        self.original = original
+
+
+def _write_line(path, entry: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False)
     with _lock:
-        with config.AUDIT_LOG.open("a", encoding="utf-8") as f:
+        with path.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
+
+
+def _append(entry: dict, strict: bool = False) -> dict:
+    """
+    Write one entry to the main log. If that fails, write it to the fallback
+    file instead, marked `primary_log_failed`, so the record is never lost.
+
+    With strict=True (decisions), the caller is told by AuditWriteError that the
+    entry is NOT in the main log, where /appeal looks. Everything else is best
+    effort: the entry lands in the fallback and the request carries on.
+    """
+    try:
+        _write_line(config.AUDIT_LOG, entry)
+    except OSError as err:
+        try:
+            _write_line(config.AUDIT_FALLBACK_LOG, {**entry, "primary_log_failed": True})
+        except OSError:
+            pass  # nowhere left to write; strict callers still hear about it
+        if strict:
+            raise AuditWriteError(err) from err
     return entry
 
 
