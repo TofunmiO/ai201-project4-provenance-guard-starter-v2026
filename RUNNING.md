@@ -8,6 +8,61 @@ assumed — the starter ships one that already answers.
 
 ---
 
+## Quick start (Capstone)
+
+Provenance Guard runs **locally**, with logs. There is no hosted URL. This is the
+shortest path from a fresh clone to a working service; the rest of this file is
+the starter's longer guide.
+
+**What it needs**
+
+- Python **3.11, 3.12 or 3.13** (not 3.14). Built and tested on 3.13.
+- About **550 MB** of disk for the gpt2 model, downloaded once, and an internet
+  connection for that first download. After that it runs offline.
+- No API key and no account.
+
+**Start it**
+
+```bash
+git clone https://github.com/TofunmiO/ai201-project4-provenance-guard-starter-v2026.git
+cd ai201-project4-provenance-guard-starter-v2026
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python detector.py                 # downloads the model (~550 MB) once
+PORT=5001 python app.py            # the start command
+```
+
+`PORT=5001` is there because on macOS the AirPlay Receiver holds port 5000 and
+answers every request with a 403. On other systems you can run `python app.py`
+and use port 5000 instead.
+
+**Check it works** (second terminal):
+
+```bash
+curl http://127.0.0.1:5001/health
+```
+
+You should see `"ok": true`. `detector_loaded` stays `false` until the first
+`/submit`, which then takes about 6 seconds while the model loads. Later requests
+take about 0.1 seconds.
+
+**Where the records go**
+
+- `logs/audit.jsonl` — every decision, rejection, appeal and failure, one JSON
+  object per line. Read it back with `GET /log`.
+- `logs/audit_fallback.jsonl` — only appears if the main log can't be written.
+
+**The capstone scripts**
+
+| Command | What it does |
+|---|---|
+| `python demo_failures.py` | Forces each stage to fail and shows what the writer gets and what is logged. No server needed |
+| `python measure_cost.py --url http://127.0.0.1:5001` | Measures the cost of a run: one cold start, then ten warm requests. Restart the server first for a real cold number |
+| `python run_eval.py --url http://127.0.0.1:5001 --label <name>` | Runs the criteria three times each |
+
+---
+
 ## Before your first class
 
 ```bash
