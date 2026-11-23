@@ -1417,3 +1417,27 @@ I stopped on all of these for the same reason: the brief asks for one improvemen
   - *Original criterion 4, an unknown-id appeal adds 1 log entry, not 0.* I would leave the code as it is. I would rather have a trace of a refused appeal than an empty log, and the unit 7 target and the unit 8 logging decision conflict, so I chose the logging.
   - *Original criterion 5, the AI average is 0.304 above the human average (target 0.30).* It passes by 0.004, and only because I moved weight onto the style signal. What I would do is add a signal that separates plain human prose from AI prose, because both of mine misread it. The weight change is tuned to my own 15 texts and leans on the signal that EV02 and EV06 show is the cheapest to fool.
 - **The detector has no timeout.** I put it out of scope in Milestone 1. My layer catches a stage that crashes, but a detector that hangs would still hold the request open and the writer would get no message. I know this from reading `app.py`, which has no timeout anywhere, and I have not tested a slow detector. What I would do is put a time limit around the detector call so a hung model returns the same 503 `scoring_failed` as a crash.
+
+**What I'd Do Next**
+
+If this were real and I had another unit, the first thing I would do is put a timeout on the detector, so a hung model returns the same 503 `scoring_failed` as a crash instead of holding the request open. I would do it first because it is the biggest known hole in the layer I built, and it is cheap to build and testable with the same forced-failure method as `run_capstone.py`.
+
+**How I Used AI**
+
+**Moment 1: being honest about what the writer is told**
+
+- *What I asked for:* A message for the writer when a stage fails, saying what happened and what they can do, and a record of the failure in the log.
+- *What came back:* Claude built one wording for every failing stage: "Your text was not scored. Please try again in a minute." For an audit-write failure that was false, because the text had been scored and only the saving had failed, and the writer would also have been left with a `content_id` that `/appeal` cannot find. Claude had not caught that until I said I want to be honest with the writer and not mislead them.
+- *What I changed:* I held to being honest, so the audit failure now has its own message and its own code, `record_failed`, saying the text was checked but the result was not saved and cannot be appealed yet. I also chose a separate `next_step` key over checking the message for a phrase, so a test can check the key and does not break when a sentence is reworded. Both are in `app.py::_stage_failed`.
+
+**Moment 2: the criterion I wanted to change after I saw the result**
+
+- *What I asked for:* Whether criterion 5, "5 of 5 original criteria still pass", made sense, since what I meant was that the system should not get worse than the Nov 16 run, and two of the original five had already missed in unit 8.
+- *What came back:* Claude first recommended leaving it as written, then, once I explained my intent, offered to revise it with a disclosure and I chose that. When the Milestone 6 brief arrived, Claude told me the brief only credits a revision when the criterion could not be measured, that mine could be and I had missed it, and that it should have checked the brief before offering the option.
+- *What I changed:* I had it restore the original wording as the target, with the verdict MISSED, and keep my no-regression check beside it, labeled as an addition and not a replacement. The two commits show the order: the revision (`c8900f1`), then the restore (`4fd4fae`).
+
+**Moment 3: a test that would have failed for the wrong reason**
+
+- *What I asked for:* A reproducible test for criterion 2, which says the new `failed` entry's `timestamp` must be later than the moment the request was sent.
+- *What came back:* Claude noticed before writing it that `audit.py::_now()` recorded timestamps to the whole second, so a request sent at 12:00:00.9 that failed 10 ms later would be stamped 12:00:00, earlier than the send time, and the test would fail even when the code was right. It offered two fixes: record milliseconds, or reword the criterion to the second.
+- *What I changed:* I chose milliseconds, so my criterion stays as I wrote it and the test can tell a new entry from an old one. Claude checked that nothing in the code reads timestamps back before changing `_now()`. Entries from before the change are still in whole seconds.
