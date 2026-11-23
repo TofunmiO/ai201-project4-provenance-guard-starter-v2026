@@ -132,3 +132,40 @@ The average combined score of 5 clearly-AI texts is at least 0.30 higher than th
      A number you missed stays where it is, gets diagnosed, and gets a fix
      attempted. That's where the points are.
      ───────────────────────────────────────────────────────────────────────── -->
+
+
+---
+
+## Capstone criteria
+
+Five criteria for the failure-handling layer added in the capstone. Each one holds on every one of three trials.
+
+### 1.
+
+**3 of 3 stages** (detector, style signal, audit write) return status 503 with JSON containing `error`, `message` and `next_step`, all three non-empty, when that stage fails.
+
+**Why this target:** The writer needs `message` to understand what happened and `next_step` to know how to fix it, and `error` is a fixed code so a program can tell failures apart without reading the wording. It has to hold for all 3 stages because they cover every place the route can fail, and a stage left out would fail silently. Before the layer, all three did, as a bare HTML 500 with no message. The response is built in `app.py::_stage_failed`.
+
+### 2.
+
+**2 of 2 stages** (detector, style signal) leave one new `failed` entry in `logs/audit.jsonl` when they fail, with the right `stage` and a `timestamp` later than the moment the request was sent.
+
+**Why this target:** The log is how I understand what happened in an attack or a crash. The `stage` lets me pinpoint where it broke and patch it, and the `timestamp` lets me tell what came before the failure from what came after, so a test can see the entry is new. A failure with no entry would show up only as an absence. This covers 2 of 2 stages because the detector and the style signal are the two stages written to `audit.jsonl`. The entry is written by `audit.py::log_failure`.
+
+### 3.
+
+**1 of 1 stage** (the audit write) lands its entry in `logs/audit_fallback.jsonl` when `logs/audit.jsonl` cannot be written, and the response has `error` = `record_failed` and says the text was scored but not recorded.
+
+**Why this target:** If the main log is down and nothing else records it, the failure flies under the radar undetected. The fallback file means there is no single point of failure, so I can still pinpoint what happened while the log is down. The response says the text was scored but not recorded because I want to be honest with the writer and not mislead them: a normal result would give them a `content_id` that `/appeal` cannot find, since `/appeal` reads only the main log. The fallback is written by `audit.py::_append` and the message by `app.py::_stage_failed`.
+
+### 4.
+
+**3 of 3 stages** fail at the same `stage` when the logged `input` is replayed under the same forced failure.
+
+**Why this target:** What I can reproduce I can test, fix, and rule on as a real failure. Replaying the logged `input` and getting the same `stage` confirms I am fixing the right problem, because the log entry pointed at it correctly. It has to hold for all 3 stages, or one stage's failures could not be reproduced from the log. The full text is kept on `failed` entries by `app.py::_stage_failed`.
+
+### 5.
+
+**5 of 5** original criteria still pass and the labels are unchanged after the capstone changes, compared against `results/run_2026-11-16_2148_after.md` (18 `ai` / 9 `human` / 42 `unsure`).
+
+**Why this target:** This is to ensure the system works as it should and there is no regression. The Nov 16 "after" run is the last known tested and graded version of the working system, so it is a good comparison. It has to be 5 of 5 because the extension is supposed to make the application better, so even one original criterion failing means it made something worse. The criteria are run by `run_eval.py`, and the comparison file is `results/run_2026-11-16_2148_after.md`.
