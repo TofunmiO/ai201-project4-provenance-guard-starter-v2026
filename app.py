@@ -162,16 +162,20 @@ def _stage_failed(creator_id, content_id, stage, exc, started):
     audit.log_failure(
         creator_id=creator_id,
         stage=stage,
-        error_type=type(exc).__name__,
+        error_type=type(getattr(exc, "original", exc)).__name__,
         duration_ms=int((time.monotonic() - started) * 1000),
         content_id=content_id,
     )
-    return jsonify({
-        "error": "scoring_failed",
-        "message": ("Something went wrong on our side while checking your text. "
-                    "Your text was not scored. Please try again in a minute."),
-        "content_id": content_id,
-    }), 503
+    if stage == "audit":
+        # The text WAS scored; the result just could not be recorded. Say so.
+        error = "record_failed"
+        message = ("We checked your text, but could not save the result, so it "
+                   "cannot be appealed yet. Please submit again in a minute.")
+    else:
+        error = "scoring_failed"
+        message = ("Something went wrong on our side while checking your text. "
+                   "Your text was not scored. Please try again in a minute.")
+    return jsonify({"error": error, "message": message, "content_id": content_id}), 503
 
 
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
@@ -292,16 +296,23 @@ def submit():
     confidence = combined_score
 
 # Step 4 - log the decision. The content_id is what /appeal needs later.
-    audit.log_decision(
-        content_id=content_id,
-        creator_id=creator_id,
-        guess=guess,
-        model_score=model_score,
-        style_score=style_score,
-        combined_score=combined_score,
-        label=label,
-        status="decided",
-    )
+    started = time.monotonic()
+    try:
+        audit.log_decision(
+            content_id=content_id,
+            creator_id=creator_id,
+            guess=guess,
+            model_score=model_score,
+            style_score=style_score,
+            combined_score=combined_score,
+            label=label,
+            status="decided",
+        )
+    except audit.AuditWriteError as exc:
+        # The decision is in the fallback file but not where /appeal looks, so
+        # the writer is told it was not recorded rather than given an id that
+        # an appeal could not find.
+        return _stage_failed(creator_id, content_id, "audit", exc, started)
 
     # Step 1 - to get the route working without any logic
     return jsonify({
