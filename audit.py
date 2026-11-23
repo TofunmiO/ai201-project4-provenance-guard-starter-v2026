@@ -112,6 +112,33 @@ def log_rejection(creator_id: str, reason: str, **extra) -> dict:
     })
 
 
+def log_failure(
+    creator_id: str,
+    stage: str,
+    error_type: str,
+    duration_ms: int,
+    **extra,
+) -> dict:
+    """
+    Record a stage that failed while handling a request (capstone).
+
+    `stage` is which part broke ("detector", "style", "audit"), `error_type` is
+    the exception class name, and `duration_ms` is how long the stage ran before
+    it failed. A failure that returns an error page and leaves nothing here is
+    the same absence problem as an unlogged 429.
+    """
+    return _append({
+        "timestamp": _now(),
+        "creator_id": creator_id,
+        "event": "failed",
+        "status": "failed",
+        "stage": stage,
+        "error_type": error_type,
+        "duration_ms": duration_ms,
+        **extra,
+    })
+
+
 def _append(entry: dict) -> dict:
     config.LOG_DIR.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False)
