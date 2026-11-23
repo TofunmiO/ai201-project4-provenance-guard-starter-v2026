@@ -1179,6 +1179,18 @@ How I measured it (`measure_cost.py`): I checked `/health` and it showed `detect
 
 The detector is essentially the whole cost. The cold start is about fifty times a warm request, so what a writer feels is a restart: the first person after one waits about 6 seconds. This is one machine (a laptop, CPU only) and ten texts, so treat it as a measurement of this setup and not a general figure.
 
+*For a hundred people a day.* I assumed each person submits 10 times a day, which I think is realistic for a writer checking their own work, and that the service restarts once a day. That is my assumption, not a measurement.
+
+```
+requests per day  = 100 people x 10 submissions        = 1,000 requests
+warm compute      = 1,000 requests x 0.112 s           =   112 s
+cold start        = 1 restart x 5.9 s                  =   5.9 s
+total             = 112 s + 5.9 s                      = 117.9 s
+as a share of a day = 117.9 s / 86,400 s               = 0.14 %
+```
+
+Running this for a hundred people a day costs about two minutes of compute on one laptop, with no per-request charge, because nothing is billed and the model runs on my own machine. It uses about 550 MB of memory while running, and the machine has to stay on all day to answer, which is a larger cost than the two minutes of compute.
+
 
 **Run Log and Verdicts (Capstone)**
 
@@ -1395,4 +1407,13 @@ no-regression check, reported beside it (same verdicts and labels as the baselin
 
 *Did it help?* It helped the miss it was aimed at: original criterion 5 now passes in all three trials (0.304 against 0.30), and the original system meets 4 of 5 criteria instead of 3. It did not turn capstone criterion 5 into a pass: that criterion asks for 5 of 5 and original criterion 4 still misses, and it also asks for the labels to be unchanged, which this change breaks on purpose. The no-regression check I keep beside it now reports MISSED for the same reason. The labels moved as my replay predicted: A02, an AI text, went from `ai` to `unsure` (the `ai` count fell from 18 to 15), and H02, a human text, went from `unsure` to `human` (the `human` count rose from 9 to 15; it appears in two scenarios on three trials each).
 
-*The trade.* One more AI text gets under the AI line (A02, 0.705 to 0.685), in exchange for one real writer being cleared (H02, 0.355 to 0.342, which is only 0.008 under the line). The pass on the gap is thin, 0.004 over the target, and it comes from giving more weight to the style signal, which my unit 8 attacks showed is the cheapest to fool. In my replay the spread evasions EV02 and EV06 stay labeled human and their scores fall a little further (0.149 to 0.089 and 0.143 to 0.086). I did not re-run the attack set, so those attack numbers are a prediction and not a measurement. This also tunes to my own ten human and five AI texts, so it is not a fix for the cause I diagnosed, which is that both signals misread plain human prose.
+*The trade.* One more AI text gets under the AI line (A02, 0.705 to 0.685), in exchange for one real writer being cleared (H02, 0.355 to 0.342, which is only 0.008 under the line). The pass on the gap is thin, 0.004 over the target, and it comes from giving more weight to the style signal, which my unit 8 attacks showed is the cheapest to fool. I re-ran the attack set after the change (`results/attack_run_2026-11-23_0112_capstone_improved.md`, against the Nov 16 "after" run) and it matched my replay. Two attacks changed label: EV01 (typos) went from `human` to `unsure` (0.314 to 0.374) and EV07 (punctuation padding) from `unsure` to `ai` (0.690 to 0.731), so two evasions are now caught or half-caught and none got newly through. The spread evasions EV02 and EV06 stayed labeled `human` and their scores fell further (0.149 to 0.089 and 0.143 to 0.086), which is the cost of weighting the cheapest signal to fool more heavily. No false-positive attack moved into `ai`. This also tunes to my own ten human and five AI texts, so it is not a fix for the cause I diagnosed, which is that both signals misread plain human prose.
+
+**What's Still Broken (Capstone)**
+
+I stopped on all of these for the same reason: the brief asks for one improvement, I spent mine on the original criterion 5 gap, and the rest were more than I could fit in the time given for the milestones.
+
+- **Capstone criterion 5 is MISSED (4 of 5 original criteria pass).** It comes from two original criteria.
+  - *Original criterion 4, an unknown-id appeal adds 1 log entry, not 0.* I would leave the code as it is. I would rather have a trace of a refused appeal than an empty log, and the unit 7 target and the unit 8 logging decision conflict, so I chose the logging.
+  - *Original criterion 5, the AI average is 0.304 above the human average (target 0.30).* It passes by 0.004, and only because I moved weight onto the style signal. What I would do is add a signal that separates plain human prose from AI prose, because both of mine misread it. The weight change is tuned to my own 15 texts and leans on the signal that EV02 and EV06 show is the cheapest to fool.
+- **The detector has no timeout.** I put it out of scope in Milestone 1. My layer catches a stage that crashes, but a detector that hangs would still hold the request open and the writer would get no message. I know this from reading `app.py`, which has no timeout anywhere, and I have not tested a slow detector. What I would do is put a time limit around the detector call so a hung model returns the same 503 `scoring_failed` as a crash.
