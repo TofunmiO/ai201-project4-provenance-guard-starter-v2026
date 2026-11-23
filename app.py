@@ -173,12 +173,15 @@ def _stage_failed(creator_id, content_id, stage, exc, started, text=None):
         # The text WAS scored; the result just could not be recorded. Say so.
         error = "record_failed"
         message = ("We checked your text, but could not save the result, so it "
-                   "cannot be appealed yet. Please submit again in a minute.")
+                   "cannot be appealed yet.")
+        next_step = "Submit your text again in a minute."
     else:
         error = "scoring_failed"
         message = ("Something went wrong on our side while checking your text. "
-                   "Your text was not scored. Please try again in a minute.")
-    return jsonify({"error": error, "message": message, "content_id": content_id}), 503
+                   "Your text was not scored.")
+        next_step = "Try again in a minute."
+    return jsonify({"error": error, "message": message, "next_step": next_step,
+                    "content_id": content_id}), 503
 
 
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
