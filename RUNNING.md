@@ -33,6 +33,16 @@ python detector.py                 # downloads the model (~550 MB) once
 PORT=5001 python app.py            # the start command
 ```
 
+If `python3 --version` prints 3.14, use `python3.13` (or 3.12 or 3.11) in the
+`venv` line instead. 3.14 is not supported by the pinned packages.
+
+The repo ships with the log from my own runs, so a fresh clone starts with
+`logs/audit.jsonl` already holding entries, and `/health` shows a non-zero
+`log_entries` before you have submitted anything. Those are mine, not yours.
+
+On the first run the model download takes a few minutes on a normal connection.
+`python detector.py` printing a `model_signal` score means it worked.
+
 `PORT=5001` is there because on macOS the AirPlay Receiver holds port 5000 and
 answers every request with a 403. On other systems you can run `python app.py`
 and use port 5000 instead.
